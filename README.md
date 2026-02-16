@@ -4,6 +4,8 @@
 
 DeepReeder intercepts URLs from user messages, scrapes content intelligently using specialized parsers, formats it into clean Markdown with YAML frontmatter, and saves it to the agent's long-term memory.
 
+🌍 **Translations**: [中文](README_zh.md) · [Español](README_es.md) · [한국어](README_ko.md) · [日本語](README_ja.md) · [العربية](README_ar.md) · [Français](README_fr.md)
+
 ---
 
 ## ✨ Features
@@ -11,8 +13,24 @@ DeepReeder intercepts URLs from user messages, scrapes content intelligently usi
 | Parser | Sources | Method |
 |--------|---------|--------|
 | 🌐 **Generic** | Blogs, articles, docs | [Trafilatura](https://trafilatura.readthedocs.io/) with BeautifulSoup fallback |
-| 🐦 **Twitter / X** | Tweets & threads | Nitter instance proxying |
+| 🐦 **Twitter / X** | Tweets, threads, X Articles | **FxTwitter API** (primary) + Nitter (fallback) |
 | 🎬 **YouTube** | Video transcripts | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
+
+### 🐦 Twitter / X — Deep Integration
+
+Powered by [FxTwitter](https://github.com/FxEmbed/FxEmbed) API with Nitter fallback. Inspired by [x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher).
+
+| Content Type | Support |
+|-------------|---------|
+| Regular tweets | ✅ Full text + engagement stats |
+| Long tweets (Twitter Blue) | ✅ Full text |
+| X Articles (long-form) | ✅ Complete article text + word count |
+| Quoted tweets | ✅ Nested content included |
+| Media (images, video, GIF) | ✅ URLs extracted |
+| Reply threads | ✅ Via Nitter fallback (first 5) |
+| Engagement stats | ✅ ❤️ likes, 🔁 RTs, 👁️ views, 🔖 bookmarks |
+
+**No API keys. No login. No rate limits.**
 
 ### Output Format
 
@@ -62,6 +80,10 @@ from deepreader_skill import run
 result = run("Check out this article: https://example.com/blog/post")
 print(result)
 
+# Process a tweet (uses FxTwitter API automatically)
+result = run("Interesting thread: https://x.com/elonmusk/status/123456")
+print(result)
+
 # Process multiple URLs at once
 result = run("""
   Here are some links:
@@ -79,18 +101,18 @@ print(result)
 
 ✅ How to Build AI Agents
    Source: https://example.com/article
-   Saved to: memory/inbox/20260216_120000_how-to-build-ai-agents.md
-   Content: 3200 characters
+   Saved to: memory/inbox/2026-02-16_how-to-build-ai-agents.md
+   Content: 3,200 characters
+
+✅ Tweet by @elonmusk (Mon Feb 16 12:00:00 +0000 2026)
+   Source: https://x.com/elonmusk/status/123456
+   Saved to: memory/inbox/2026-02-16_tweet-by-elonmusk.md
+   Content: 480 characters
 
 ✅ Rick Astley - Never Gonna Give You Up
    Source: https://youtube.com/watch?v=dQw4w9WgXcQ
-   Saved to: memory/inbox/20260216_120001_rick-astley-never-gonna.md
-   Content: 15000 characters
-
-✅ @user's tweet
-   Source: https://x.com/user/status/123456
-   Saved to: memory/inbox/20260216_120002_user-tweet.md
-   Content: 280 characters
+   Saved to: memory/inbox/2026-02-16_rick-astley-never-gonna.md
+   Content: 15,000 characters
 ```
 
 ---
@@ -107,10 +129,21 @@ deepreader_skill/
 │   ├── storage.py       # Markdown file generation & saving
 │   └── utils.py         # URL extraction & helper utilities
 └── parsers/
-    ├── base.py           # Abstract base parser & ParseResult model
-    ├── generic.py        # Generic article/blog parser
-    ├── twitter.py        # Twitter/X parser (via Nitter)
-    └── youtube.py        # YouTube transcript parser
+    ├── base.py          # Abstract base parser & ParseResult model
+    ├── generic.py       # Generic article/blog parser (Trafilatura)
+    ├── twitter.py       # Twitter/X parser (FxTwitter + Nitter)
+    └── youtube.py       # YouTube transcript parser
+```
+
+### Twitter Parser Strategy
+
+```
+URL detected → FxTwitter API (primary)
+                 ↓ success? → ✅ Rich result (stats, media, articles)
+                 ↓ failure?
+               Nitter instances (fallback)
+                 ↓ success? → ✅ Basic result + reply threads
+                 ↓ failure? → ❌ Graceful error with diagnostics
 ```
 
 ---
@@ -123,6 +156,15 @@ DeepReeder uses sensible defaults out of the box. Configuration can be customize
 |----------|---------|-------------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Where to save ingested content |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | Logging verbosity |
+
+---
+
+## 🙏 Credits
+
+- **[FxTwitter / FixTweet](https://github.com/FxEmbed/FxEmbed)** — Public API for fetching Twitter/X content
+- **[x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher)** — Inspiration for the FxTwitter integration approach
+- **[Trafilatura](https://trafilatura.readthedocs.io/)** — Robust web content extraction
+- **[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)** — YouTube transcript fetching
 
 ---
 
@@ -141,13 +183,6 @@ Contributions are welcome! Feel free to:
 ## 📄 License
 
 This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
-
----
-
-## 🔗 Links
-
-- **Repository**: [github.com/astonysh/OpenClaw-DeepReeder](https://github.com/astonysh/OpenClaw-DeepReeder)
-- **Issues**: [github.com/astonysh/OpenClaw-DeepReeder/issues](https://github.com/astonysh/OpenClaw-DeepReeder/issues)
 
 ---
 

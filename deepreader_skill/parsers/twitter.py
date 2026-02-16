@@ -1,32 +1,42 @@
 """
 DeepReader Skill - Twitter / X Parser
 =======================================
-Strategy-pattern implementation for reading tweets:
+Hybrid strategy for reading tweets:
 
-1. **Primary**:  Rotate through public Nitter instances to fetch tweet
-   content without any API keys.
-2. **Fallback**: Gracefully degrade with informative guidance on how to
-   plug in a scraping service (ZenRows, ScrapingBee) or browser cookies.
+1. **Primary**:  FxTwitter public API — zero dependencies, reliable,
+   supports regular tweets, long tweets, X Articles, quoted tweets,
+   media, and engagement stats.
+2. **Fallback**: Rotate through public Nitter instances to fetch tweet
+   content (especially useful for fetching reply threads).
 
-Why Nitter?
------------
-Twitter's official API is paywalled and rate-limited.  Nitter is an
-open-source alternative frontend that serves tweets as plain HTML,
-making extraction trivial.  However, public instances may go down,
-so we rotate through several and retry.
+Why FxTwitter first?
+---------------------
+FxTwitter (api.fxtwitter.com) is a public, maintenance-free API that
+returns structured JSON.  It is far more reliable than Nitter instances
+which frequently go offline.  It also returns rich metadata (stats,
+media, articles) that Nitter does not expose.
 
-Extending with a paid scraping service
----------------------------------------
-If all Nitter instances fail, you can integrate a proxy/rendering
-service.  See the ``_fallback_scrape`` method for detailed guidance
-on where to plug in ZenRows or browser cookies.
+Nitter as fallback
+-------------------
+Nitter HTML scraping is retained as a secondary strategy, primarily
+because it can extract reply threads (first N replies), which FxTwitter
+does not provide.
+
+Credits
+--------
+FxTwitter integration inspired by `x-tweet-fetcher` by ythx-101:
+https://github.com/ythx-101/x-tweet-fetcher
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import random
 import re
+import time
+import urllib.error
+import urllib.request
 from urllib.parse import urlparse
 
 import requests
@@ -39,7 +49,7 @@ logger = logging.getLogger("deepreader.parsers.twitter")
 
 # ---------------------------------------------------------------------------
 # Known public Nitter instances (community-maintained)
-# Update this list periodically – instances come and go.
+# Used only as fallback for reply-thread extraction.
 # ---------------------------------------------------------------------------
 NITTER_INSTANCES: list[str] = [
     "https://nitter.privacydev.net",
@@ -54,13 +64,17 @@ NITTER_INSTANCES: list[str] = [
 
 
 class TwitterParser(BaseParser):
-    """Parse tweets from Twitter / X via Nitter relay instances."""
+    """Parse tweets from Twitter / X.
+
+    Primary:   FxTwitter API (structured JSON, zero deps, rich metadata).
+    Fallback:  Nitter HTML scraping (reply threads).
+    """
 
     name = "twitter"
-    timeout = 20
+    timeout = 30
 
-    # Maximum number of Nitter instances to try before giving up.
-    max_retries: int = 4
+    # Maximum Nitter instances to try for reply extraction.
+    max_nitter_retries: int = 3
 
     def can_handle(self, url: str) -> bool:
         """Return ``True`` for twitter.com / x.com URLs."""
@@ -68,49 +82,233 @@ class TwitterParser(BaseParser):
         return is_twitter_url(url)
 
     def parse(self, url: str) -> ParseResult:
-        """Attempt to read a tweet via Nitter, with graceful fallbacks."""
-        tweet_path = self._extract_tweet_path(url)
-        if not tweet_path:
+        """Attempt to read a tweet — FxTwitter first, Nitter fallback."""
+        tweet_info = self._extract_tweet_info(url)
+        if not tweet_info:
             return ParseResult.failure(
                 url,
                 "Could not extract a valid tweet path from this URL. "
                 "Expected format: https://twitter.com/user/status/123456",
             )
 
-        # Shuffle instances to spread load and improve resilience.
+        username, tweet_id = tweet_info
+
+        # ----- Strategy 1: FxTwitter API (primary) -----
+        result = self._parse_fxtwitter(url, username, tweet_id)
+        if result.success:
+            return result
+
+        logger.warning(
+            "FxTwitter failed for %s, trying Nitter fallback: %s",
+            url, result.error,
+        )
+
+        # ----- Strategy 2: Nitter HTML scraping (fallback) -----
+        tweet_path = f"{username}/status/{tweet_id}"
+        nitter_result = self._parse_nitter_fallback(url, tweet_path)
+        if nitter_result.success:
+            return nitter_result
+
+        # ----- Both strategies failed -----
+        return ParseResult.failure(
+            url,
+            f"⚠️ All strategies failed for this tweet.\n"
+            f"FxTwitter error: {result.error}\n"
+            f"Nitter error: {nitter_result.error}\n\n"
+            f"The tweet URL was: {url}\n"
+            f"This may be a deleted/private tweet, or a temporary service outage.",
+        )
+
+    # ==================================================================
+    #  FxTwitter API — Primary Strategy
+    # ==================================================================
+
+    def _parse_fxtwitter(
+        self, original_url: str, username: str, tweet_id: str,
+    ) -> ParseResult:
+        """Fetch tweet via the FxTwitter public JSON API."""
+        api_url = f"https://api.fxtwitter.com/{username}/status/{tweet_id}"
+
+        max_attempts = 2
+        last_error = ""
+
+        for attempt in range(max_attempts):
+            try:
+                req = urllib.request.Request(
+                    api_url,
+                    headers={"User-Agent": "Mozilla/5.0"},
+                )
+                with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                    data = json.loads(resp.read().decode())
+
+                if data.get("code") != 200:
+                    last_error = (
+                        f"FxTwitter returned code {data.get('code')}: "
+                        f"{data.get('message', 'Unknown')}"
+                    )
+                    return ParseResult.failure(original_url, last_error)
+
+                return self._build_result_from_fxtwitter(original_url, data)
+
+            except urllib.error.HTTPError as exc:
+                last_error = f"HTTP {exc.code}: {exc.reason}"
+                return ParseResult.failure(original_url, last_error)
+
+            except urllib.error.URLError:
+                last_error = "Network error: failed to reach FxTwitter API"
+                if attempt < max_attempts - 1:
+                    time.sleep(1)
+                    continue
+
+            except Exception as exc:  # noqa: BLE001
+                last_error = f"Unexpected error: {exc}"
+                logger.warning("FxTwitter unexpected error: %s", exc)
+                break
+
+        return ParseResult.failure(original_url, last_error)
+
+    def _build_result_from_fxtwitter(
+        self, original_url: str, data: dict,
+    ) -> ParseResult:
+        """Transform FxTwitter JSON response into a ParseResult."""
+        from ..core.utils import clean_text, generate_excerpt
+
+        tweet = data["tweet"]
+        author = tweet.get("author", {}).get("name", "")
+        screen_name = tweet.get("author", {}).get("screen_name", "")
+        created_at = tweet.get("created_at", "")
+        tweet_text = tweet.get("text", "")
+        is_article = bool(tweet.get("article"))
+        is_note = tweet.get("is_note_tweet", False)
+
+        # --- Engagement stats ---
+        stats_line = (
+            f"❤️ {tweet.get('likes', 0):,}  "
+            f"🔁 {tweet.get('retweets', 0):,}  "
+            f"🔖 {tweet.get('bookmarks', 0):,}  "
+            f"👁️ {tweet.get('views', 0):,}  "
+            f"💬 {tweet.get('replies', 0):,}"
+        )
+
+        content_parts: list[str] = []
+
+        # --- X Article (long-form content) ---
+        if is_article:
+            article = tweet["article"]
+            article_title = article.get("title", "")
+            article_blocks = article.get("content", {}).get("blocks", [])
+            article_text = "\n\n".join(
+                b.get("text", "") for b in article_blocks if b.get("text", "")
+            )
+            word_count = len(article_text.split())
+
+            title = f"📝 {article_title}" if article_title else f"X Article by @{screen_name}"
+
+            content_parts.append(f"# {article_title}\n")
+            content_parts.append(f"**By @{screen_name}** ({author}) · {created_at}\n")
+            content_parts.append(f"📊 {stats_line}\n")
+            content_parts.append(f"📐 {word_count:,} words\n")
+            content_parts.append("---\n")
+            content_parts.append(article_text)
+
+        else:
+            # --- Regular tweet / note tweet ---
+            title = f"Tweet by @{screen_name}"
+            if created_at:
+                title += f" ({created_at})"
+
+            content_parts.append(f"**@{screen_name}** ({author})\n")
+            content_parts.append(f"🕐 {created_at}\n")
+            content_parts.append(f"📊 {stats_line}\n")
+            content_parts.append("---\n")
+            content_parts.append(tweet_text)
+
+            if is_note:
+                content_parts.append("\n\n> 📝 *This is a Note Tweet (long-form)*")
+
+        # --- Quoted tweet ---
+        quote = tweet.get("quote")
+        if quote:
+            qt_author = quote.get("author", {}).get("screen_name", "unknown")
+            qt_text = quote.get("text", "")
+            content_parts.append("\n\n---\n### 🔁 Quoted Tweet\n")
+            content_parts.append(f"> **@{qt_author}**: {qt_text}\n")
+            qt_stats = (
+                f"> ❤️ {quote.get('likes', 0):,}  "
+                f"🔁 {quote.get('retweets', 0):,}  "
+                f"👁️ {quote.get('views', 0):,}"
+            )
+            content_parts.append(qt_stats)
+
+        # --- Media ---
+        media = tweet.get("media", {})
+        all_media = media.get("all", [])
+        if all_media:
+            content_parts.append("\n\n---\n### 🖼️ Media\n")
+            for i, item in enumerate(all_media, 1):
+                media_type = item.get("type", "unknown")
+                media_url = item.get("url", "")
+                if media_type == "photo":
+                    content_parts.append(f"![Image {i}]({media_url})\n")
+                elif media_type == "video":
+                    content_parts.append(f"🎬 Video: [{media_url}]({media_url})\n")
+                elif media_type == "gif":
+                    content_parts.append(f"🎞️ GIF: [{media_url}]({media_url})\n")
+
+        full_content = clean_text("\n".join(content_parts))
+
+        tags = ["twitter"]
+        if is_article:
+            tags.append("x-article")
+        if is_note:
+            tags.append("note-tweet")
+        if quote:
+            tags.append("quote-tweet")
+        if all_media:
+            tags.append("has-media")
+
+        return ParseResult(
+            url=original_url,
+            title=title,
+            content=full_content,
+            author=f"@{screen_name}" if screen_name else author,
+            excerpt=generate_excerpt(full_content),
+            tags=tags,
+        )
+
+    # ==================================================================
+    #  Nitter HTML Scraping — Fallback Strategy
+    # ==================================================================
+
+    def _parse_nitter_fallback(self, original_url: str, tweet_path: str) -> ParseResult:
+        """Try Nitter instances as a fallback (useful for reply threads)."""
         instances = random.sample(
             NITTER_INSTANCES,
-            min(self.max_retries, len(NITTER_INSTANCES)),
+            min(self.max_nitter_retries, len(NITTER_INSTANCES)),
         )
 
         last_error = ""
         for instance in instances:
             nitter_url = f"{instance}/{tweet_path}"
-            logger.info("Trying Nitter instance: %s", nitter_url)
+            logger.info("Trying Nitter fallback: %s", nitter_url)
             try:
-                result = self._parse_nitter(url, nitter_url)
+                result = self._parse_nitter_page(original_url, nitter_url)
                 if result.success:
                     return result
                 last_error = result.error
             except requests.RequestException as exc:
                 last_error = str(exc)
-                logger.warning("Nitter instance %s failed: %s", instance, exc)
-                continue
+                logger.warning("Nitter %s failed: %s", instance, exc)
             except Exception as exc:  # noqa: BLE001
                 last_error = str(exc)
-                logger.warning("Unexpected error with %s: %s", instance, exc)
-                continue
+                logger.warning("Nitter unexpected error: %s", exc)
 
-        # ------------------------------------------------------------------
-        # All Nitter instances failed → fallback
-        # ------------------------------------------------------------------
-        return self._fallback_scrape(url, last_error)
+        return ParseResult.failure(
+            original_url,
+            f"All Nitter instances failed. Last error: {last_error}",
+        )
 
-    # ------------------------------------------------------------------
-    # Nitter HTML Parsing
-    # ------------------------------------------------------------------
-
-    def _parse_nitter(self, original_url: str, nitter_url: str) -> ParseResult:
+    def _parse_nitter_page(self, original_url: str, nitter_url: str) -> ParseResult:
         """Fetch and parse a single Nitter page."""
         resp = requests.get(
             nitter_url,
@@ -120,40 +318,36 @@ class TwitterParser(BaseParser):
         resp.raise_for_status()
         soup = BeautifulSoup(resp.text, "lxml")
 
-        # --- Tweet body ---
         tweet_div = soup.find("div", class_="tweet-content") or soup.find(
             "div", class_="main-tweet"
         )
         if not tweet_div:
             return ParseResult.failure(
                 original_url,
-                f"Nitter page loaded but no tweet content found at {nitter_url}",
+                f"Nitter page loaded but no content found at {nitter_url}",
             )
 
         tweet_text = tweet_div.get_text(separator="\n", strip=True)
 
-        # --- Author ---
         author_tag = soup.find("a", class_="fullname") or soup.find(
             "span", class_="username"
         )
         author = author_tag.get_text(strip=True) if author_tag else ""
 
-        # --- Timestamp ---
         date_tag = soup.find("span", class_="tweet-date")
         timestamp = ""
         if date_tag:
             a_tag = date_tag.find("a")
             timestamp = a_tag.get("title", "") if a_tag else date_tag.get_text(strip=True)
 
-        # Build a nice title
         title = f"Tweet by {author}" if author else "Tweet"
         if timestamp:
             title += f" ({timestamp})"
 
-        # Collect reply context if present
+        # Collect reply context
         replies: list[str] = []
         reply_divs = soup.find_all("div", class_="reply")
-        for rd in reply_divs[:5]:  # limit to first 5 replies
+        for rd in reply_divs[:5]:
             reply_content = rd.find("div", class_="tweet-content")
             if reply_content:
                 replies.append(reply_content.get_text(separator=" ", strip=True))
@@ -174,92 +368,30 @@ class TwitterParser(BaseParser):
             content=full_content,
             author=author,
             excerpt=generate_excerpt(full_content),
-            tags=["twitter"],
+            tags=["twitter", "nitter-fallback"],
         )
 
-    # ------------------------------------------------------------------
-    # Fallback Strategy
-    # ------------------------------------------------------------------
-
-    def _fallback_scrape(self, url: str, last_error: str) -> ParseResult:
-        """Produce a graceful degradation result with integration guidance.
-
-        .. rubric:: How to extend with a paid scraping service
-
-        **Option A – ZenRows / ScrapingBee:**
-
-        1. Sign up at https://www.zenrows.com/ or https://www.scrapingbee.com/
-        2. Obtain your API key.
-        3. Replace the body of this method with::
-
-                import requests
-                api_key = "YOUR_ZENROWS_API_KEY"
-                params = {
-                    "url": url,
-                    "apikey": api_key,
-                    "js_render": "true",
-                    "premium_proxy": "true",
-                }
-                resp = requests.get("https://api.zenrows.com/v1/", params=params)
-                html = resp.text
-                # Then parse 'html' with BeautifulSoup to extract tweet text.
-
-        **Option B – Browser Cookies:**
-
-        1. Export your Twitter session cookies (e.g. with the *EditThisCookie*
-           browser extension) as a Netscape-format ``cookies.txt`` file.
-        2. Place the file at ``deepreader_skill/twitter_cookies.txt``.
-        3. Modify ``_fetch_with_cookies()`` below to load and send them::
-
-                import http.cookiejar
-                jar = http.cookiejar.MozillaCookieJar("twitter_cookies.txt")
-                jar.load()
-                session = requests.Session()
-                session.cookies = jar
-                resp = session.get(url, headers=self._get_headers())
-
-        **Option C – Playwright / Selenium headless browser:**
-
-        For the most reliable extraction, you can use a headless browser.
-        This is heavier but handles JavaScript-rendered content::
-
-                from playwright.sync_api import sync_playwright
-                with sync_playwright() as p:
-                    browser = p.chromium.launch(headless=True)
-                    page = browser.new_page()
-                    page.goto(url, wait_until="networkidle")
-                    html = page.content()
-                    browser.close()
-                # Then parse 'html' as above.
-
-        Returns a :class:`ParseResult` with ``success=False`` and the
-        guidance embedded in the error message.
-        """
-        error_msg = (
-            f"⚠️ All Nitter instances failed for this tweet.\n"
-            f"Last error: {last_error}\n\n"
-            f"The tweet URL was: {url}\n\n"
-            f"💡 To improve Twitter support, consider:\n"
-            f"  1. Updating the NITTER_INSTANCES list in twitter.py\n"
-            f"  2. Integrating a paid scraping service (ZenRows/ScrapingBee)\n"
-            f"  3. Using browser cookies for authenticated access\n"
-            f"  See the _fallback_scrape() docstring for detailed instructions."
-        )
-        logger.warning("Twitter fallback triggered for %s", url)
-        return ParseResult.failure(url, error_msg)
-
-    # ------------------------------------------------------------------
-    # URL Utilities
-    # ------------------------------------------------------------------
+    # ==================================================================
+    #  URL Utilities
+    # ==================================================================
 
     @staticmethod
-    def _extract_tweet_path(url: str) -> str | None:
-        """Extract the tweet path (``user/status/id``) from a Twitter URL.
+    def _extract_tweet_info(url: str) -> tuple[str, str] | None:
+        """Extract (username, tweet_id) from a Twitter URL.
 
         Returns ``None`` if the URL doesn't match the expected pattern.
         """
+        match = re.search(
+            r"(?:x\.com|twitter\.com)/([a-zA-Z0-9_]{1,15})/status/(\d+)", url,
+        )
+        if match:
+            return match.group(1), match.group(2)
+        return None
+
+    @staticmethod
+    def _extract_tweet_path(url: str) -> str | None:
+        """Legacy: extract ``user/status/id`` path from a Twitter URL."""
         parsed = urlparse(url)
-        # Match patterns like /username/status/1234567890
         match = re.match(r"^/([^/]+)/status/(\d+)", parsed.path)
         if match:
             return f"{match.group(1)}/status/{match.group(2)}"
