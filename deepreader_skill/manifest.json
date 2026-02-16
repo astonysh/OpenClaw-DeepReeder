@@ -1,0 +1,30 @@
+{
+  "name": "DeepReader",
+  "description": "Autonomous web content ingestion engine. Intercepts URLs from user messages, scrapes content intelligently using specialized parsers (generic articles, Twitter/X, YouTube), formats it into clean Markdown with YAML frontmatter metadata, and saves it to the agent's long-term memory directory.",
+  "version": "1.0.0",
+  "author": "OpenClaw",
+  "entry_point": "deepreader_skill",
+  "args": {
+    "text": {
+      "type": "string",
+      "description": "The user message that may contain one or more URLs to process.",
+      "required": true
+    }
+  },
+  "triggers": [
+    {
+      "type": "message",
+      "pattern": "https?://",
+      "description": "Triggers when a user message contains a URL."
+    }
+  ],
+  "capabilities": [
+    "web_scraping",
+    "content_extraction",
+    "youtube_transcription",
+    "twitter_reading",
+    "markdown_generation"
+  ],
+  "memory_path": "../../memory/inbox/",
+  "tags": ["reader", "scraper", "ingestion", "memory"]
+}

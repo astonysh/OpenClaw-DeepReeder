@@ -1,0 +1,24 @@
+# DeepReader Skill - Dependencies
+# Web scraping & content extraction
+trafilatura>=1.12.0
+requests>=2.31.0
+lxml>=5.1.0
+lxml-html-clean>=0.4.0
+
+# YouTube transcript extraction
+youtube-transcript-api>=0.6.2
+
+# Data validation & settings
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# URL parsing & utilities
+tldextract>=5.1.0
+
+# HTML parsing (fallback)
+beautifulsoup4>=4.12.0
+
+# Unique ID generation (stdlib, listed for clarity)
+# uuid - built-in
+# re - built-in
+# hashlib - built-in
