@@ -14,6 +14,7 @@ DeepReeder intercepte les URLs des messages utilisateur, extrait le contenu inte
 |--------|---------|---------|
 | 🌐 **Générique** | Blogs, articles, documentation | [Trafilatura](https://trafilatura.readthedocs.io/) avec fallback BeautifulSoup |
 | 🐦 **Twitter / X** | Tweets, fils, X Articles | **FxTwitter API** (principal) + Nitter (fallback) |
+| 🟠 **Reddit** | Posts + fils de commentaires | **Reddit .json API** (sans configuration) |
 | 🎬 **YouTube** | Transcriptions vidéo | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
 
 ### 🐦 Twitter / X — Intégration Approfondie
@@ -30,6 +31,20 @@ Propulsé par l'API [FxTwitter](https://github.com/FxEmbed/FxEmbed). Inspiré pa
 | Fils de réponses | ✅ Via Nitter fallback (5 premières) |
 | Statistiques d'engagement | ✅ ❤️ likes, 🔁 RTs, 👁️ vues, 🔖 signets |
 
+### 🟠 Reddit — Intégration JSON Native
+
+Utilise le suffixe URL `.json` intégré de Reddit — **sans clé API, sans OAuth, sans inscription**.
+
+| Type de Contenu | Support |
+|----------------|---------|
+| Self posts (texte) | ✅ Corps Markdown complet |
+| Link posts | ✅ URL + métadonnées |
+| Meilleurs commentaires (par score) | ✅ Jusqu'à 15 commentaires |
+| Fils de réponses imbriqués | ✅ Jusqu'à 3 niveaux |
+| Médias (images, galeries, vidéo) | ✅ URLs extraites |
+| Statistiques du post | ✅ ⬆️ score, 💬 commentaires, ratio de votes |
+| Tags Flair | ✅ Inclus |
+
 **Sans clé API. Sans connexion. Sans limite de débit.**
 
 ---
@@ -37,15 +52,10 @@ Propulsé par l'API [FxTwitter](https://github.com/FxEmbed/FxEmbed). Inspiré pa
 ## 📦 Installation
 
 ```bash
-# Cloner le dépôt
 git clone https://github.com/astonysh/OpenClaw-DeepReeder.git
 cd OpenClaw-DeepReeder
-
-# Créer un environnement virtuel
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Installer les dépendances
 pip install -e .
 ```
 
@@ -56,20 +66,21 @@ pip install -e .
 ```python
 from deepreader_skill import run
 
-# Traiter une seule URL
+# Traiter une URL
 result = run("Regarde cet article : https://example.com/blog/post")
 print(result)
 
-# Traiter un tweet (utilise automatiquement l'API FxTwitter)
-result = run("Fil intéressant : https://x.com/elonmusk/status/123456")
+# Traiter un post Reddit
+result = run("Super discussion : https://www.reddit.com/r/python/comments/abc123/my_post/")
 print(result)
 
-# Traiter plusieurs URLs en une fois
+# Traiter plusieurs URLs
 result = run("""
   Voici quelques liens :
   https://example.com/article
   https://youtube.com/watch?v=dQw4w9WgXcQ
   https://x.com/user/status/123456
+  https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
 """)
 print(result)
 ```
@@ -81,49 +92,46 @@ print(result)
 ```
 deepreader_skill/
 ├── __init__.py          # Point d'entrée — fonction run()
-├── manifest.json        # Métadonnées du skill et configuration des triggers
-├── requirements.txt     # Liste des dépendances
+├── manifest.json        # Métadonnées du skill
+├── requirements.txt     # Dépendances
 ├── core/
-│   ├── router.py        # Logique de routage URL → Parser
-│   ├── storage.py       # Génération et sauvegarde des fichiers Markdown
-│   └── utils.py         # Extraction d'URLs et fonctions utilitaires
+│   ├── router.py        # Routage URL → Parser
+│   ├── storage.py       # Génération et sauvegarde Markdown
+│   └── utils.py         # Extraction d'URLs et utilitaires
 └── parsers/
-    ├── base.py          # Parser de base abstrait et modèle ParseResult
-    ├── generic.py       # Parser générique d'articles/blogs
+    ├── base.py          # Parser de base abstrait
+    ├── generic.py       # Parser générique (Trafilatura)
     ├── twitter.py       # Parser Twitter/X (FxTwitter + Nitter)
-    └── youtube.py       # Parser de transcriptions YouTube
+    ├── reddit.py        # Parser Reddit (.json API)
+    └── youtube.py       # Parser YouTube
 ```
 
-### Stratégie du Parser Twitter
+### Stratégie de Sélection
 
 ```
-URL détectée → FxTwitter API (principal)
-                 ↓ succès ? → ✅ Résultat enrichi (stats, médias, articles)
-                 ↓ échec ?
-               Instances Nitter (fallback)
-                 ↓ succès ? → ✅ Résultat basique + fils de réponses
-                 ↓ échec ? → ❌ Message d'erreur explicatif avec diagnostic
+URL détectée → Twitter/X?  → FxTwitter API → Nitter fallback
+             → Reddit?     → .json suffix API
+             → YouTube?    → youtube-transcript-api
+             → autre?      → Trafilatura (générique)
 ```
 
 ---
 
 ## 🔧 Configuration
 
-DeepReeder fonctionne immédiatement avec des valeurs par défaut raisonnables. La configuration peut être personnalisée via des variables d'environnement :
-
 | Variable | Par défaut | Description |
 |----------|-----------|-------------|
-| `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Chemin de sauvegarde du contenu |
-| `DEEPREEDER_LOG_LEVEL` | `INFO` | Niveau de verbosité des journaux |
+| `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Chemin de sauvegarde |
+| `DEEPREEDER_LOG_LEVEL` | `INFO` | Niveau de verbosité |
 
 ---
 
 ## 🙏 Remerciements
 
-- **[FxTwitter / FixTweet](https://github.com/FxEmbed/FxEmbed)** — API publique pour récupérer le contenu Twitter/X
-- **[x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher)** — Inspiration pour l'approche d'intégration FxTwitter
-- **[Trafilatura](https://trafilatura.readthedocs.io/)** — Extraction robuste de contenu web
-- **[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)** — Récupération de transcriptions YouTube
+- **[FxTwitter / FixTweet](https://github.com/FxEmbed/FxEmbed)** — API publique pour Twitter/X
+- **[x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher)** — Inspiration pour l'intégration FxTwitter
+- **[Trafilatura](https://trafilatura.readthedocs.io/)** — Extraction de contenu web
+- **[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)** — Transcriptions YouTube
 
 ---
 
@@ -132,16 +140,16 @@ DeepReeder fonctionne immédiatement avec des valeurs par défaut raisonnables. 
 Les contributions sont les bienvenues !
 
 1. Forkez le dépôt
-2. Créez une branche de fonctionnalité (`git checkout -b feature/parser-genial`)
-3. Commitez vos changements (`git commit -m 'Ajouter un parser génial'`)
-4. Poussez la branche (`git push origin feature/parser-genial`)
+2. Créez une branche (`git checkout -b feature/parser-genial`)
+3. Commitez (`git commit -m 'Ajouter un parser génial'`)
+4. Poussez (`git push origin feature/parser-genial`)
 5. Ouvrez une Pull Request
 
 ---
 
 ## 📄 Licence
 
-Ce projet est sous licence **MIT** — consultez le fichier [LICENSE](LICENSE) pour plus de détails.
+**Licence MIT** — consultez [LICENSE](LICENSE) pour plus de détails.
 
 ---
 

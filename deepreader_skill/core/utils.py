@@ -132,6 +132,10 @@ def content_hash(text: str) -> str:
 
 _TWITTER_DOMAINS = {"twitter.com", "x.com", "mobile.twitter.com", "mobile.x.com"}
 _YOUTUBE_DOMAINS = {"youtube.com", "youtu.be", "www.youtube.com", "m.youtube.com"}
+_REDDIT_DOMAINS = {
+    "reddit.com", "www.reddit.com", "old.reddit.com",
+    "new.reddit.com", "np.reddit.com", "m.reddit.com",
+}
 
 
 def is_twitter_url(url: str) -> bool:
@@ -145,6 +149,13 @@ def is_youtube_url(url: str) -> bool:
     parsed = urlparse(url)
     hostname = parsed.hostname or ""
     return hostname in _YOUTUBE_DOMAINS
+
+
+def is_reddit_url(url: str) -> bool:
+    """Return ``True`` if *url* points to Reddit."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    return hostname in _REDDIT_DOMAINS and "/comments/" in parsed.path
 
 
 def extract_youtube_video_id(url: str) -> str | None:

@@ -14,6 +14,7 @@ DeepReeder 自动拦截用户消息中的 URL，使用专用解析器智能抓�
 |--------|------|------|
 | 🌐 **通用** | 博客、文章、文档 | [Trafilatura](https://trafilatura.readthedocs.io/) + BeautifulSoup 备用方案 |
 | 🐦 **Twitter / X** | 推文、线程、X 文章 | **FxTwitter API**（主力） + Nitter（备用） |
+| 🟠 **Reddit** | 帖子 + 评论线程 | **Reddit .json API**（零配置） |
 | 🎬 **YouTube** | 视频字幕 | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
 
 ### 🐦 Twitter / X — 深度整合
@@ -29,6 +30,20 @@ DeepReeder 自动拦截用户消息中的 URL，使用专用解析器智能抓�
 | 媒体（图片、视频、GIF） | ✅ URL 提取 |
 | 回复线程 | ✅ 通过 Nitter 备用方案（前5条） |
 | 互动数据 | ✅ ❤️ 喜欢、🔁 转发、👁️ 浏览、🔖 书签 |
+
+### 🟠 Reddit — 原生 JSON 整合
+
+使用 Reddit 内置的 `.json` URL 后缀 — **无需 API 密钥、无需 OAuth、无需注册**。
+
+| 内容类型 | 支持 |
+|---------|------|
+| 自发帖（文本） | ✅ 完整 Markdown 正文 |
+| 链接帖 | ✅ URL + 元数据 |
+| 热门评论（按评分排序） | ✅ 最多15条评论 |
+| 嵌套回复线程 | ✅ 最多3层深度 |
+| 媒体（图片、图集、视频） | ✅ URL 提取 |
+| 帖子统计 | ✅ ⬆️ 评分、💬 评论数、点赞比例 |
+| Flair 标签 | ✅ 包含 |
 
 **无需 API 密钥。无需登录。无速率限制。**
 
@@ -64,12 +79,17 @@ print(result)
 result = run("有趣的推文: https://x.com/elonmusk/status/123456")
 print(result)
 
+# 处理 Reddit 帖子（自动使用 .json API）
+result = run("精彩讨论: https://www.reddit.com/r/python/comments/abc123/my_post/")
+print(result)
+
 # 批量处理多个 URL
 result = run("""
   这里有一些链接:
   https://example.com/article
   https://youtube.com/watch?v=dQw4w9WgXcQ
   https://x.com/user/status/123456
+  https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
 """)
 print(result)
 ```
@@ -91,18 +111,17 @@ deepreader_skill/
     ├── base.py          # 抽象基类与 ParseResult 模型
     ├── generic.py       # 通用文章/博客解析器
     ├── twitter.py       # Twitter/X 解析器（FxTwitter + Nitter）
+    ├── reddit.py        # Reddit 解析器（.json API）
     └── youtube.py       # YouTube 字幕解析器
 ```
 
-### Twitter 解析器策略
+### 解析器选择策略
 
 ```
-检测到 URL → FxTwitter API（主力）
-               ↓ 成功？ → ✅ 丰富结果（数据、媒体、文章）
-               ↓ 失败？
-             Nitter 实例（备用）
-               ↓ 成功？ → ✅ 基础结果 + 回复线程
-               ↓ 失败？ → ❌ 友好的错误信息与诊断
+检测到 URL → Twitter/X？ → FxTwitter API → Nitter 备用
+           → Reddit？    → .json 后缀 API
+           → YouTube？   → youtube-transcript-api
+           → 其他        → Trafilatura（通用）
 ```
 
 ---

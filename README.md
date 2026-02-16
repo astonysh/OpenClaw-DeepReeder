@@ -14,6 +14,7 @@ DeepReeder intercepts URLs from user messages, scrapes content intelligently usi
 |--------|---------|--------|
 | 🌐 **Generic** | Blogs, articles, docs | [Trafilatura](https://trafilatura.readthedocs.io/) with BeautifulSoup fallback |
 | 🐦 **Twitter / X** | Tweets, threads, X Articles | **FxTwitter API** (primary) + Nitter (fallback) |
+| 🟠 **Reddit** | Posts + comment threads | **Reddit .json API** (zero-config) |
 | 🎬 **YouTube** | Video transcripts | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
 
 ### 🐦 Twitter / X — Deep Integration
@@ -30,6 +31,20 @@ Powered by [FxTwitter](https://github.com/FxEmbed/FxEmbed) API with Nitter fallb
 | Reply threads | ✅ Via Nitter fallback (first 5) |
 | Engagement stats | ✅ ❤️ likes, 🔁 RTs, 👁️ views, 🔖 bookmarks |
 
+### 🟠 Reddit — Native JSON Integration
+
+Uses Reddit's built-in `.json` URL suffix — **no API keys, no OAuth, no registration**.
+
+| Content Type | Support |
+|-------------|---------|
+| Self posts (text) | ✅ Full markdown body |
+| Link posts | ✅ URL + metadata |
+| Top comments (sorted by score) | ✅ Up to 15 comments |
+| Nested reply threads | ✅ Up to 3 levels deep |
+| Media (images, galleries, video) | ✅ URLs extracted |
+| Post stats | ✅ ⬆️ score, 💬 comment count, upvote ratio |
+| Flair tags | ✅ Included |
+
 **No API keys. No login. No rate limits.**
 
 ### Output Format
@@ -38,18 +53,29 @@ Every piece of content is saved as a `.md` file with structured YAML frontmatter
 
 ```yaml
 ---
-title: "Article Title"
-source_url: "https://example.com/article"
-domain: "example.com"
-parser: "generic"
+title: "[r/python] How I built an AI agent framework"
+source_url: "https://www.reddit.com/r/python/comments/abc123/..."
+domain: "reddit.com"
+parser: "reddit"
 ingested_at: "2026-02-16T12:00:00Z"
 content_hash: "sha256:abc123..."
-word_count: 1500
+word_count: 2500
 ---
 
-# Article Title
+# How I built an AI agent framework
 
-The clean, extracted content goes here...
+**r/python** · u/developer123 · 2026-02-16 12:00 UTC
+📊 ⬆️ 847 (96% upvoted) · 💬 234 comments · 🏷️ Discussion
+
+---
+
+Post body goes here...
+
+---
+### 💬 Top Comments
+
+**u/expert_dev** (⬆️ 342):
+> This is a really well-structured approach...
 ```
 
 ---
@@ -84,35 +110,19 @@ print(result)
 result = run("Interesting thread: https://x.com/elonmusk/status/123456")
 print(result)
 
+# Process a Reddit post (uses .json API automatically)
+result = run("Great discussion: https://www.reddit.com/r/python/comments/abc123/my_post/")
+print(result)
+
 # Process multiple URLs at once
 result = run("""
   Here are some links:
   https://example.com/article
   https://youtube.com/watch?v=dQw4w9WgXcQ
   https://x.com/user/status/123456
+  https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
 """)
 print(result)
-```
-
-### Example Output
-
-```
-📚 DeepReader — Processed 3 URL(s):
-
-✅ How to Build AI Agents
-   Source: https://example.com/article
-   Saved to: memory/inbox/2026-02-16_how-to-build-ai-agents.md
-   Content: 3,200 characters
-
-✅ Tweet by @elonmusk (Mon Feb 16 12:00:00 +0000 2026)
-   Source: https://x.com/elonmusk/status/123456
-   Saved to: memory/inbox/2026-02-16_tweet-by-elonmusk.md
-   Content: 480 characters
-
-✅ Rick Astley - Never Gonna Give You Up
-   Source: https://youtube.com/watch?v=dQw4w9WgXcQ
-   Saved to: memory/inbox/2026-02-16_rick-astley-never-gonna.md
-   Content: 15,000 characters
 ```
 
 ---
@@ -132,18 +142,17 @@ deepreader_skill/
     ├── base.py          # Abstract base parser & ParseResult model
     ├── generic.py       # Generic article/blog parser (Trafilatura)
     ├── twitter.py       # Twitter/X parser (FxTwitter + Nitter)
+    ├── reddit.py        # Reddit parser (.json API)
     └── youtube.py       # YouTube transcript parser
 ```
 
-### Twitter Parser Strategy
+### Parser Selection Strategy
 
 ```
-URL detected → FxTwitter API (primary)
-                 ↓ success? → ✅ Rich result (stats, media, articles)
-                 ↓ failure?
-               Nitter instances (fallback)
-                 ↓ success? → ✅ Basic result + reply threads
-                 ↓ failure? → ❌ Graceful error with diagnostics
+URL detected → is Twitter/X?  → FxTwitter API → Nitter fallback
+             → is Reddit?     → .json suffix API
+             → is YouTube?    → youtube-transcript-api
+             → otherwise      → Trafilatura (generic)
 ```
 
 ---

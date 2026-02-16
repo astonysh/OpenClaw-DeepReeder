@@ -14,6 +14,7 @@ DeepReeder는 사용자 메시지에서 URL을 자동으로 감지하고, 전문
 |------|------|------|
 | 🌐 **범용** | 블로그, 기사, 문서 | [Trafilatura](https://trafilatura.readthedocs.io/) + BeautifulSoup 대체 |
 | 🐦 **Twitter / X** | 트윗, 스레드, X 아티클 | **FxTwitter API** (주력) + Nitter (대체) |
+| 🟠 **Reddit** | 게시물 + 댓글 스레드 | **Reddit .json API** (제로 설정) |
 | 🎬 **YouTube** | 동영상 자막 | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
 
 ### 🐦 Twitter / X — 심층 통합
@@ -29,6 +30,20 @@ DeepReeder는 사용자 메시지에서 URL을 자동으로 감지하고, 전문
 | 미디어 (이미지, 동영상, GIF) | ✅ URL 추출 |
 | 답글 스레드 | ✅ Nitter 대체를 통해 (처음 5개) |
 | 참여 통계 | ✅ ❤️ 좋아요, 🔁 리트윗, 👁️ 조회, 🔖 북마크 |
+
+### 🟠 Reddit — 네이티브 JSON 통합
+
+Reddit의 내장 `.json` URL 접미사 사용 — **API 키 불필요, OAuth 불필요, 등록 불필요**.
+
+| 콘텐츠 유형 | 지원 |
+|------------|------|
+| 셀프 포스트 (텍스트) | ✅ 전체 Markdown 본문 |
+| 링크 포스트 | ✅ URL + 메타데이터 |
+| 인기 댓글 (점수순 정렬) | ✅ 최대 15개 댓글 |
+| 중첩 답글 스레드 | ✅ 최대 3단계 깊이 |
+| 미디어 (이미지, 갤러리, 동영상) | ✅ URL 추출 |
+| 게시물 통계 | ✅ ⬆️ 점수, 💬 댓글 수, 추천 비율 |
+| Flair 태그 | ✅ 포함 |
 
 **API 키 불필요. 로그인 불필요. 속도 제한 없음.**
 
@@ -60,8 +75,12 @@ from deepreader_skill import run
 result = run("이 기사를 확인하세요: https://example.com/blog/post")
 print(result)
 
-# 트윗 처리 (자동으로 FxTwitter API 사용)
+# 트윗 처리
 result = run("흥미로운 스레드: https://x.com/elonmusk/status/123456")
+print(result)
+
+# Reddit 게시물 처리
+result = run("좋은 토론: https://www.reddit.com/r/python/comments/abc123/my_post/")
 print(result)
 
 # 여러 URL 한번에 처리
@@ -70,6 +89,7 @@ result = run("""
   https://example.com/article
   https://youtube.com/watch?v=dQw4w9WgXcQ
   https://x.com/user/status/123456
+  https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
 """)
 print(result)
 ```
@@ -91,25 +111,22 @@ deepreader_skill/
     ├── base.py          # 추상 기본 파서 및 ParseResult 모델
     ├── generic.py       # 범용 기사/블로그 파서
     ├── twitter.py       # Twitter/X 파서 (FxTwitter + Nitter)
+    ├── reddit.py        # Reddit 파서 (.json API)
     └── youtube.py       # YouTube 자막 파서
 ```
 
-### Twitter 파서 전략
+### 파서 선택 전략
 
 ```
-URL 감지 → FxTwitter API (주력)
-             ↓ 성공? → ✅ 풍부한 결과 (통계, 미디어, 기사)
-             ↓ 실패?
-           Nitter 인스턴스 (대체)
-             ↓ 성공? → ✅ 기본 결과 + 답글 스레드
-             ↓ 실패? → ❌ 친절한 오류 메시지 및 진단
+URL 감지 → Twitter/X? → FxTwitter API → Nitter 대체
+         → Reddit?    → .json 접미사 API
+         → YouTube?   → youtube-transcript-api
+         → 기타       → Trafilatura (범용)
 ```
 
 ---
 
 ## 🔧 설정
-
-DeepReeder는 합리적인 기본값으로 바로 사용할 수 있습니다. 환경 변수로 설정을 변경할 수 있습니다:
 
 | 변수 | 기본값 | 설명 |
 |------|--------|------|

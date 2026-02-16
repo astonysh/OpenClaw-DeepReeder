@@ -14,6 +14,7 @@ DeepReeder intercepta URLs de los mensajes de usuario, extrae contenido de forma
 |--------|---------|--------|
 | 🌐 **Genérico** | Blogs, artículos, documentación | [Trafilatura](https://trafilatura.readthedocs.io/) con fallback BeautifulSoup |
 | 🐦 **Twitter / X** | Tweets, hilos, X Articles | **FxTwitter API** (principal) + Nitter (fallback) |
+| 🟠 **Reddit** | Posts + hilos de comentarios | **Reddit .json API** (sin configuración) |
 | 🎬 **YouTube** | Transcripciones de vídeo | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
 
 ### 🐦 Twitter / X — Integración Profunda
@@ -29,6 +30,20 @@ Impulsado por la API de [FxTwitter](https://github.com/FxEmbed/FxEmbed). Inspira
 | Medios (imágenes, vídeo, GIF) | ✅ URLs extraídas |
 | Hilos de respuestas | ✅ Vía Nitter fallback (primeras 5) |
 | Estadísticas de interacción | ✅ ❤️ likes, 🔁 RTs, 👁️ vistas, 🔖 marcadores |
+
+### 🟠 Reddit — Integración JSON Nativa
+
+Usa el sufijo `.json` nativo de Reddit — **sin claves API, sin OAuth, sin registro**.
+
+| Tipo de Contenido | Soporte |
+|-------------------|---------|
+| Self posts (texto) | ✅ Cuerpo completo en Markdown |
+| Link posts | ✅ URL + metadatos |
+| Comentarios principales (por puntuación) | ✅ Hasta 15 comentarios |
+| Hilos de respuestas anidados | ✅ Hasta 3 niveles |
+| Medios (imágenes, galerías, vídeo) | ✅ URLs extraídas |
+| Estadísticas del post | ✅ ⬆️ puntuación, 💬 comentarios, ratio de votos |
+| Etiquetas Flair | ✅ Incluidas |
 
 **Sin claves API. Sin inicio de sesión. Sin límites de velocidad.**
 
@@ -60,16 +75,21 @@ from deepreader_skill import run
 result = run("Mira este artículo: https://example.com/blog/post")
 print(result)
 
-# Procesar un tweet (usa FxTwitter API automáticamente)
+# Procesar un tweet
 result = run("Hilo interesante: https://x.com/elonmusk/status/123456")
 print(result)
 
-# Procesar múltiples URLs a la vez
+# Procesar un post de Reddit
+result = run("Gran discusión: https://www.reddit.com/r/python/comments/abc123/my_post/")
+print(result)
+
+# Procesar múltiples URLs
 result = run("""
   Aquí hay algunos enlaces:
   https://example.com/article
   https://youtube.com/watch?v=dQw4w9WgXcQ
   https://x.com/user/status/123456
+  https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
 """)
 print(result)
 ```
@@ -91,25 +111,22 @@ deepreader_skill/
     ├── base.py          # Parser base abstracto y modelo ParseResult
     ├── generic.py       # Parser genérico de artículos/blogs
     ├── twitter.py       # Parser Twitter/X (FxTwitter + Nitter)
+    ├── reddit.py        # Parser Reddit (.json API)
     └── youtube.py       # Parser de transcripciones de YouTube
 ```
 
-### Estrategia del Parser de Twitter
+### Estrategia de Selección de Parser
 
 ```
-URL detectada → FxTwitter API (principal)
-                  ↓ ¿éxito? → ✅ Resultado enriquecido (stats, media, artículos)
-                  ↓ ¿fallo?
-                Instancias Nitter (fallback)
-                  ↓ ¿éxito? → ✅ Resultado básico + hilos de respuestas
-                  ↓ ¿fallo? → ❌ Error descriptivo con diagnóstico
+URL detectada → ¿Twitter/X?  → FxTwitter API → Nitter fallback
+              → ¿Reddit?     → .json suffix API
+              → ¿YouTube?    → youtube-transcript-api
+              → ¿otro?       → Trafilatura (genérico)
 ```
 
 ---
 
 ## 🔧 Configuración
-
-DeepReeder funciona listo para usar con valores predeterminados sensatos. Se puede personalizar mediante variables de entorno:
 
 | Variable | Predeterminado | Descripción |
 |----------|---------------|-------------|

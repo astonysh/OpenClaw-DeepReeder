@@ -11,9 +11,10 @@ from __future__ import annotations
 import logging
 from typing import Sequence
 
-from ..core.utils import is_twitter_url, is_youtube_url
+from ..core.utils import is_reddit_url, is_twitter_url, is_youtube_url
 from ..parsers.base import BaseParser, ParseResult
 from ..parsers.generic import GenericParser
+from ..parsers.reddit import RedditParser
 from ..parsers.twitter import TwitterParser
 from ..parsers.youtube import YouTubeParser
 
@@ -60,6 +61,7 @@ class ParserRouter:
         self._parsers.extend([
             TwitterParser(),
             YouTubeParser(),
+            RedditParser(),
         ])
 
         # Fallback parser (always matches)

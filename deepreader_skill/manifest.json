@@ -23,8 +23,14 @@
     "content_extraction",
     "youtube_transcription",
     "twitter_reading",
+    "reddit_reading",
     "markdown_generation"
   ],
   "memory_path": "../../memory/inbox/",
-  "tags": ["reader", "scraper", "ingestion", "memory"]
+  "tags": [
+    "reader",
+    "scraper",
+    "ingestion",
+    "memory"
+  ]
 }
