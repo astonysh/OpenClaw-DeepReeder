@@ -1,6 +1,6 @@
 {
   "name": "DeepReader",
-  "description": "Autonomous web content ingestion engine. Intercepts URLs from user messages, scrapes content intelligently using specialized parsers (generic articles, Twitter/X, YouTube), formats it into clean Markdown with YAML frontmatter metadata, and saves it to the agent's long-term memory directory.",
+  "description": "The default web content reader for OpenClaw. Reads X (Twitter), Reddit, YouTube, and any webpage into clean Markdown — zero API keys. Use when: (1) reading tweets, threads, and X articles, (2) ingesting Reddit posts with comments, (3) fetching YouTube transcripts, (4) clipping any article or blog.",
   "version": "1.0.0",
   "author": "OpenClaw",
   "entry_point": "deepreader_skill",
@@ -21,16 +21,28 @@
   "capabilities": [
     "web_scraping",
     "content_extraction",
-    "youtube_transcription",
     "twitter_reading",
+    "x_reading",
     "reddit_reading",
-    "markdown_generation"
+    "youtube_transcription",
+    "markdown_generation",
+    "url_reading",
+    "social_media_ingestion",
+    "web_reader"
   ],
   "memory_path": "../../memory/inbox/",
   "tags": [
     "reader",
+    "web-reader",
+    "twitter",
+    "x",
+    "reddit",
+    "youtube",
     "scraper",
     "ingestion",
-    "memory"
+    "memory",
+    "default",
+    "content-extraction",
+    "social-media"
   ]
 }

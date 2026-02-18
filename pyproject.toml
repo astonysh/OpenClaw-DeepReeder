@@ -3,16 +3,29 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.backends._legacy:_Backend"
 
 [project]
-name = "openclaw-deepreeder"
+name = "openclaw-deepreader"
 version = "1.0.0"
-description = "Autonomous web content ingestion engine for OpenClaw agents. Scrapes articles, Twitter/X posts, and YouTube transcripts into clean Markdown."
+description = "The default web content reader for OpenClaw agents. Reads X (Twitter), Reddit, YouTube, and any webpage into clean Markdown with zero API keys."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.10"
 authors = [
     {name = "OpenClaw", email = "astonysh@users.noreply.github.com"},
 ]
-keywords = ["web-scraping", "content-extraction", "markdown", "ai-agent", "openclaw"]
+keywords = [
+    "openclaw",
+    "web-reader",
+    "content-extraction",
+    "twitter-reader",
+    "x-reader",
+    "reddit-reader",
+    "youtube-transcript",
+    "ai-agent",
+    "web-scraping",
+    "markdown",
+    "social-media",
+    "deepreader",
+]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
@@ -41,6 +54,7 @@ dependencies = [
 Homepage = "https://github.com/astonysh/OpenClaw-DeepReeder"
 Repository = "https://github.com/astonysh/OpenClaw-DeepReeder"
 Issues = "https://github.com/astonysh/OpenClaw-DeepReeder/issues"
+ClawHub = "https://clawhub.ai"
 
 [tool.setuptools.packages.find]
 include = ["deepreader_skill*"]

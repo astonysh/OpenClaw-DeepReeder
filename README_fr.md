@@ -1,23 +1,54 @@
-# 🦞 OpenClaw DeepReeder
+# 🦞 OpenClaw DeepReader
 
-> **Moteur autonome d'ingestion de contenu web pour agents IA.**
+> **La passerelle de contenu web par défaut pour les agents OpenClaw.** Lit X (Twitter), Reddit, YouTube et toute page web — zéro configuration, zéro clé API.
 
-DeepReeder intercepte les URLs des messages utilisateur, extrait le contenu intelligemment à l'aide de parsers spécialisés, le formate en Markdown propre avec des métadonnées YAML frontmatter, et le sauvegarde dans la mémoire à long terme de l'agent.
+DeepReader est le lecteur de contenu intégré pour le framework d'agents [OpenClaw](https://github.com/anthropics/openclaw). Collez n'importe quelle URL dans une conversation, et DeepReader récupère, analyse et sauvegarde automatiquement du Markdown de haute qualité dans la mémoire à long terme de l'agent. Conçu pour les réseaux sociaux et le web moderne.
 
 🌍 **Traductions** : [English](README.md) · [中文](README_zh.md) · [Español](README_es.md) · [한국어](README_ko.md) · [日本語](README_ja.md) · [العربية](README_ar.md)
 
 ---
 
-## ✨ Fonctionnalités
+## ⚡ Installation
 
-| Parser | Sources | Méthode |
-|--------|---------|---------|
-| 🌐 **Générique** | Blogs, articles, documentation | [Trafilatura](https://trafilatura.readthedocs.io/) avec fallback BeautifulSoup |
-| 🐦 **Twitter / X** | Tweets, fils, X Articles | **FxTwitter API** (principal) + Nitter (fallback) |
-| 🟠 **Reddit** | Posts + fils de commentaires | **Reddit .json API** (sans configuration) |
-| 🎬 **YouTube** | Transcriptions vidéo | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
+```bash
+npx clawhub@latest install deepreader
+```
 
-### 🐦 Twitter / X — Intégration Approfondie
+Ou installation manuelle :
+
+```bash
+git clone https://github.com/astonysh/OpenClaw-DeepReeder.git
+cd OpenClaw-DeepReeder
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+---
+
+## 🎯 Utilisez Quand
+
+- Vous avez besoin de **lire un tweet, un fil ou un article X** et de l'ajouter à la mémoire d'OpenClaw
+- Vous avez besoin d'**ingérer un post Reddit** avec les meilleurs commentaires et le contexte de discussion
+- Vous voulez **sauvegarder une transcription YouTube** pour référence ou analyse ultérieure
+- Vous voulez **clipper n'importe quel blog, article ou documentation** en Markdown propre
+- Votre agent a besoin d'un **lecteur web par défaut** qui fonctionne tout simplement — sans clé API, sans configuration
+
+---
+
+## ✨ Sources Supportées
+
+| Parser | Sources | Méthode | Clé API ? |
+|--------|---------|---------|-----------|
+| 🐦 **Twitter / X** | Tweets, fils, X Articles | [FxTwitter API](https://github.com/FxEmbed/FxEmbed) + Nitter fallback | ❌ Aucune |
+| 🟠 **Reddit** | Posts + fils de commentaires | Reddit `.json` API | ❌ Aucune |
+| 🎬 **YouTube** | Transcriptions vidéo | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) | ❌ Aucune |
+| 🌐 **Toute URL** | Blogs, articles, docs | [Trafilatura](https://trafilatura.readthedocs.io/) + BeautifulSoup | ❌ Aucune |
+
+**Zéro clé API. Zéro connexion. Zéro limite. Collez et lisez.**
+
+---
+
+## 🐦 Twitter / X — Intégration Approfondie
 
 Propulsé par l'API [FxTwitter](https://github.com/FxEmbed/FxEmbed). Inspiré par [x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher).
 
@@ -31,7 +62,7 @@ Propulsé par l'API [FxTwitter](https://github.com/FxEmbed/FxEmbed). Inspiré pa
 | Fils de réponses | ✅ Via Nitter fallback (5 premières) |
 | Statistiques d'engagement | ✅ ❤️ likes, 🔁 RTs, 👁️ vues, 🔖 signets |
 
-### 🟠 Reddit — Intégration JSON Native
+## 🟠 Reddit — Intégration JSON Native
 
 Utilise le suffixe URL `.json` intégré de Reddit — **sans clé API, sans OAuth, sans inscription**.
 
@@ -45,20 +76,6 @@ Utilise le suffixe URL `.json` intégré de Reddit — **sans clé API, sans OAu
 | Statistiques du post | ✅ ⬆️ score, 💬 commentaires, ratio de votes |
 | Tags Flair | ✅ Inclus |
 
-**Sans clé API. Sans connexion. Sans limite de débit.**
-
----
-
-## 📦 Installation
-
-```bash
-git clone https://github.com/astonysh/OpenClaw-DeepReeder.git
-cd OpenClaw-DeepReeder
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-```
-
 ---
 
 ## 🚀 Démarrage Rapide
@@ -66,23 +83,26 @@ pip install -e .
 ```python
 from deepreader_skill import run
 
-# Traiter une URL
-result = run("Regarde cet article : https://example.com/blog/post")
-print(result)
+# Lire un tweet → sauvegarde dans la mémoire de l'agent
+result = run("Regarde ce tweet : https://x.com/elonmusk/status/123456")
 
-# Traiter un post Reddit
+# Lire une discussion Reddit → capture post + commentaires
 result = run("Super discussion : https://www.reddit.com/r/python/comments/abc123/my_post/")
-print(result)
 
-# Traiter plusieurs URLs
+# Lire une vidéo YouTube → sauvegarde la transcription complète
+result = run("Regarde ça : https://youtube.com/watch?v=dQw4w9WgXcQ")
+
+# Lire n'importe quel article → extrait le contenu propre
+result = run("Lecture intéressante : https://example.com/blog/ai-agents-2026")
+
+# Traitement par lots de plusieurs URLs
 result = run("""
   Voici quelques liens :
-  https://example.com/article
-  https://youtube.com/watch?v=dQw4w9WgXcQ
   https://x.com/user/status/123456
   https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
+  https://youtube.com/watch?v=dQw4w9WgXcQ
+  https://example.com/article
 """)
-print(result)
 ```
 
 ---
@@ -93,6 +113,7 @@ print(result)
 deepreader_skill/
 ├── __init__.py          # Point d'entrée — fonction run()
 ├── manifest.json        # Métadonnées du skill
+├── SKILL.md             # Description pour ClawHub
 ├── requirements.txt     # Dépendances
 ├── core/
 │   ├── router.py        # Routage URL → Parser
@@ -106,15 +127,6 @@ deepreader_skill/
     └── youtube.py       # Parser YouTube
 ```
 
-### Stratégie de Sélection
-
-```
-URL détectée → Twitter/X?  → FxTwitter API → Nitter fallback
-             → Reddit?     → .json suffix API
-             → YouTube?    → youtube-transcript-api
-             → autre?      → Trafilatura (générique)
-```
-
 ---
 
 ## 🔧 Configuration
@@ -123,6 +135,20 @@ URL détectée → Twitter/X?  → FxTwitter API → Nitter fallback
 |----------|-----------|-------------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Chemin de sauvegarde |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | Niveau de verbosité |
+
+---
+
+## 💡 Pourquoi DeepReader ?
+
+| Fonctionnalité | DeepReader | Scraping manuel | Outils navigateur |
+|----------------|-----------|----------------|-------------------|
+| **Déclenchement** | Automatique par URL | Code manuel | Action manuelle |
+| **Twitter/X** | ✅ Support complet | ❌ Bloqué | ⚠️ Partiel |
+| **Fils Reddit** | ✅ + commentaires | ⚠️ Complexe | ⚠️ Lent |
+| **Transcriptions YouTube** | ✅ Intégré | ❌ Outil séparé | ❌ Non disponible |
+| **Clés API** | ❌ Aucune | ✅ Souvent | ✅ Parfois |
+| **Format sortie** | Markdown propre | HTML brut | Captures d'écran |
+| **Intégration mémoire** | ✅ Auto-sauvegarde | ❌ Manuel | ❌ Manuel |
 
 ---
 

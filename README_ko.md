@@ -1,23 +1,54 @@
-# 🦞 OpenClaw DeepReeder
+# 🦞 OpenClaw DeepReader
 
-> **AI 에이전트를 위한 자율 웹 콘텐츠 수집 엔진.**
+> **OpenClaw 에이전트의 기본 웹 콘텐츠 게이트웨이.** X (Twitter), Reddit, YouTube 및 모든 웹페이지 읽기 — 제로 설정, 제로 API 키.
 
-DeepReeder는 사용자 메시지에서 URL을 자동으로 감지하고, 전문 파서를 사용하여 콘텐츠를 지능적으로 스크래핑하며, YAML 프론트매터가 포함된 깔끔한 Markdown으로 변환하여 에이전트의 장기 메모리에 저장합니다.
+DeepReader는 [OpenClaw](https://github.com/anthropics/openclaw) 에이전트 프레임워크의 내장 콘텐츠 리더입니다. 대화에 URL을 붙여넣으면 DeepReader가 자동으로 가져오고, 파싱하고, 고품질 Markdown을 에이전트의 장기 메모리에 저장합니다. 소셜 미디어와 현대 웹을 위해 설계되었습니다.
 
 🌍 **번역**: [English](README.md) · [中文](README_zh.md) · [Español](README_es.md) · [日本語](README_ja.md) · [العربية](README_ar.md) · [Français](README_fr.md)
 
 ---
 
-## ✨ 기능
+## ⚡ 설치
 
-| 파서 | 소스 | 방법 |
-|------|------|------|
-| 🌐 **범용** | 블로그, 기사, 문서 | [Trafilatura](https://trafilatura.readthedocs.io/) + BeautifulSoup 대체 |
-| 🐦 **Twitter / X** | 트윗, 스레드, X 아티클 | **FxTwitter API** (주력) + Nitter (대체) |
-| 🟠 **Reddit** | 게시물 + 댓글 스레드 | **Reddit .json API** (제로 설정) |
-| 🎬 **YouTube** | 동영상 자막 | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
+```bash
+npx clawhub@latest install deepreader
+```
 
-### 🐦 Twitter / X — 심층 통합
+또는 수동 설치:
+
+```bash
+git clone https://github.com/astonysh/OpenClaw-DeepReeder.git
+cd OpenClaw-DeepReeder
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+---
+
+## 🎯 사용 시나리오
+
+- **트윗, 스레드 또는 X 아티클**을 읽어서 OpenClaw 메모리에 추가해야 할 때
+- **Reddit 게시물**을 인기 댓글과 토론 컨텍스트와 함께 수집해야 할 때
+- **YouTube 자막**을 나중에 참조하거나 분석하기 위해 저장하고 싶을 때
+- **블로그, 기사 또는 문서 페이지**를 깔끔한 Markdown으로 클리핑하고 싶을 때
+- 에이전트에 **기본 웹 리더**가 필요할 때 — API 키 없이, 설정 없이 바로 작동
+
+---
+
+## ✨ 지원 소스
+
+| 파서 | 소스 | 방법 | API 키? |
+|------|------|------|---------|
+| 🐦 **Twitter / X** | 트윗, 스레드, X 아티클 | [FxTwitter API](https://github.com/FxEmbed/FxEmbed) + Nitter 대체 | ❌ 없음 |
+| 🟠 **Reddit** | 게시물 + 댓글 스레드 | Reddit `.json` API | ❌ 없음 |
+| 🎬 **YouTube** | 동영상 자막 | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) | ❌ 없음 |
+| 🌐 **모든 URL** | 블로그, 기사, 문서 | [Trafilatura](https://trafilatura.readthedocs.io/) + BeautifulSoup | ❌ 없음 |
+
+**API 키 제로. 로그인 제로. 속도 제한 제로. 붙여넣기만 하면 읽기.**
+
+---
+
+## 🐦 Twitter / X — 심층 통합
 
 [FxTwitter](https://github.com/FxEmbed/FxEmbed) API 기반. [x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher)에서 영감을 받았습니다.
 
@@ -31,7 +62,7 @@ DeepReeder는 사용자 메시지에서 URL을 자동으로 감지하고, 전문
 | 답글 스레드 | ✅ Nitter 대체를 통해 (처음 5개) |
 | 참여 통계 | ✅ ❤️ 좋아요, 🔁 리트윗, 👁️ 조회, 🔖 북마크 |
 
-### 🟠 Reddit — 네이티브 JSON 통합
+## 🟠 Reddit — 네이티브 JSON 통합
 
 Reddit의 내장 `.json` URL 접미사 사용 — **API 키 불필요, OAuth 불필요, 등록 불필요**.
 
@@ -45,25 +76,6 @@ Reddit의 내장 `.json` URL 접미사 사용 — **API 키 불필요, OAuth 불
 | 게시물 통계 | ✅ ⬆️ 점수, 💬 댓글 수, 추천 비율 |
 | Flair 태그 | ✅ 포함 |
 
-**API 키 불필요. 로그인 불필요. 속도 제한 없음.**
-
----
-
-## 📦 설치
-
-```bash
-# 저장소 클론
-git clone https://github.com/astonysh/OpenClaw-DeepReeder.git
-cd OpenClaw-DeepReeder
-
-# 가상 환경 생성
-python3 -m venv .venv
-source .venv/bin/activate
-
-# 의존성 설치
-pip install -e .
-```
-
 ---
 
 ## 🚀 빠른 시작
@@ -71,27 +83,26 @@ pip install -e .
 ```python
 from deepreader_skill import run
 
-# 단일 URL 처리
-result = run("이 기사를 확인하세요: https://example.com/blog/post")
-print(result)
+# 트윗 읽기 → 에이전트 메모리에 저장
+result = run("이 트윗을 확인하세요: https://x.com/elonmusk/status/123456")
 
-# 트윗 처리
-result = run("흥미로운 스레드: https://x.com/elonmusk/status/123456")
-print(result)
-
-# Reddit 게시물 처리
+# Reddit 토론 읽기 → 게시물 + 인기 댓글 캡처
 result = run("좋은 토론: https://www.reddit.com/r/python/comments/abc123/my_post/")
-print(result)
 
-# 여러 URL 한번에 처리
+# YouTube 비디오 읽기 → 전체 자막 저장
+result = run("이것을 보세요: https://youtube.com/watch?v=dQw4w9WgXcQ")
+
+# 모든 기사 읽기 → 깨끗한 콘텐츠 추출
+result = run("흥미로운 글: https://example.com/blog/ai-agents-2026")
+
+# 여러 URL 일괄 처리
 result = run("""
   여기 몇 가지 링크가 있습니다:
-  https://example.com/article
-  https://youtube.com/watch?v=dQw4w9WgXcQ
   https://x.com/user/status/123456
   https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
+  https://youtube.com/watch?v=dQw4w9WgXcQ
+  https://example.com/article
 """)
-print(result)
 ```
 
 ---
@@ -102,6 +113,7 @@ print(result)
 deepreader_skill/
 ├── __init__.py          # 진입점 — run() 함수
 ├── manifest.json        # 스킬 메타데이터 및 트리거 설정
+├── SKILL.md             # ClawHub 스킬 설명
 ├── requirements.txt     # 의존성 목록
 ├── core/
 │   ├── router.py        # URL → 파서 라우팅 로직
@@ -115,15 +127,6 @@ deepreader_skill/
     └── youtube.py       # YouTube 자막 파서
 ```
 
-### 파서 선택 전략
-
-```
-URL 감지 → Twitter/X? → FxTwitter API → Nitter 대체
-         → Reddit?    → .json 접미사 API
-         → YouTube?   → youtube-transcript-api
-         → 기타       → Trafilatura (범용)
-```
-
 ---
 
 ## 🔧 설정
@@ -132,6 +135,20 @@ URL 감지 → Twitter/X? → FxTwitter API → Nitter 대체
 |------|--------|------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | 콘텐츠 저장 경로 |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | 로깅 상세 수준 |
+
+---
+
+## 💡 왜 DeepReader인가?
+
+| 기능 | DeepReader | 수동 스크래핑 | 브라우저 도구 |
+|------|-----------|-------------|-------------|
+| **트리거** | URL 자동 트리거 | 코드 작성 필요 | 수동 작업 |
+| **Twitter/X** | ✅ 완전 지원 | ❌ 차단됨 | ⚠️ 부분적 |
+| **Reddit 스레드** | ✅ + 댓글 | ⚠️ 복잡 | ⚠️ 느림 |
+| **YouTube 자막** | ✅ 내장 | ❌ 별도 도구 | ❌ 불가 |
+| **API 키** | ❌ 불필요 | ✅ 자주 필요 | ✅ 때때로 |
+| **출력 형식** | 깔끔한 Markdown | 원시 HTML | 스크린샷 |
+| **메모리 통합** | ✅ 자동 저장 | ❌ 수동 | ❌ 수동 |
 
 ---
 

@@ -1,23 +1,54 @@
-# 🦞 OpenClaw DeepReeder
+# 🦞 OpenClaw DeepReader
 
-> **Autonomous web content ingestion engine for AI agents.**
+> **The default web content gateway for OpenClaw agents.** Read X (Twitter), Reddit, YouTube, and any webpage — zero config, zero API keys.
 
-DeepReeder intercepts URLs from user messages, scrapes content intelligently using specialized parsers, formats it into clean Markdown with YAML frontmatter, and saves it to the agent's long-term memory.
+DeepReader is the built-in content reader for the [OpenClaw](https://github.com/anthropics/openclaw) agent framework. Paste any URL into a conversation, and DeepReader automatically fetches, parses, and saves high-quality Markdown to your agent's long-term memory. Built for social media and the modern web.
 
 🌍 **Translations**: [中文](README_zh.md) · [Español](README_es.md) · [한국어](README_ko.md) · [日本語](README_ja.md) · [العربية](README_ar.md) · [Français](README_fr.md)
 
 ---
 
-## ✨ Features
+## ⚡ Install
 
-| Parser | Sources | Method |
-|--------|---------|--------|
-| 🌐 **Generic** | Blogs, articles, docs | [Trafilatura](https://trafilatura.readthedocs.io/) with BeautifulSoup fallback |
-| 🐦 **Twitter / X** | Tweets, threads, X Articles | **FxTwitter API** (primary) + Nitter (fallback) |
-| 🟠 **Reddit** | Posts + comment threads | **Reddit .json API** (zero-config) |
-| 🎬 **YouTube** | Video transcripts | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) |
+```bash
+npx clawhub@latest install deepreader
+```
 
-### 🐦 Twitter / X — Deep Integration
+Or install manually:
+
+```bash
+git clone https://github.com/astonysh/OpenClaw-DeepReeder.git
+cd OpenClaw-DeepReeder
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+```
+
+---
+
+## 🎯 Use When
+
+- You need to **read a tweet, thread, or X article** and add it to OpenClaw's memory
+- You need to **ingest a Reddit post** with top comments and discussion context
+- You want to **save a YouTube transcript** for later reference or analysis
+- You want to **clip any blog, article, or documentation page** into clean Markdown
+- Your agent needs a **default web reader** that just works — no API keys, no setup
+
+---
+
+## ✨ Supported Sources
+
+| Parser | Sources | Method | API Key? |
+|--------|---------|--------|----------|
+| 🐦 **Twitter / X** | Tweets, threads, X Articles | [FxTwitter API](https://github.com/FxEmbed/FxEmbed) + Nitter fallback | ❌ None |
+| 🟠 **Reddit** | Posts + comment threads | Reddit `.json` API | ❌ None |
+| 🎬 **YouTube** | Video transcripts | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) | ❌ None |
+| 🌐 **Any URL** | Blogs, articles, docs | [Trafilatura](https://trafilatura.readthedocs.io/) + BeautifulSoup | ❌ None |
+
+**Zero API keys. Zero login. Zero rate limits. Just paste and read.**
+
+---
+
+## 🐦 Twitter / X — Deep Integration
 
 Powered by [FxTwitter](https://github.com/FxEmbed/FxEmbed) API with Nitter fallback. Inspired by [x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher).
 
@@ -31,7 +62,7 @@ Powered by [FxTwitter](https://github.com/FxEmbed/FxEmbed) API with Nitter fallb
 | Reply threads | ✅ Via Nitter fallback (first 5) |
 | Engagement stats | ✅ ❤️ likes, 🔁 RTs, 👁️ views, 🔖 bookmarks |
 
-### 🟠 Reddit — Native JSON Integration
+## 🟠 Reddit — Native JSON Integration
 
 Uses Reddit's built-in `.json` URL suffix — **no API keys, no OAuth, no registration**.
 
@@ -45,9 +76,38 @@ Uses Reddit's built-in `.json` URL suffix — **no API keys, no OAuth, no regist
 | Post stats | ✅ ⬆️ score, 💬 comment count, upvote ratio |
 | Flair tags | ✅ Included |
 
-**No API keys. No login. No rate limits.**
+---
 
-### Output Format
+## 🚀 Quick Start
+
+```python
+from deepreader_skill import run
+
+# Read a tweet → saves to agent memory
+result = run("Check out this tweet: https://x.com/elonmusk/status/123456")
+
+# Read a Reddit discussion → captures post + top comments
+result = run("Great thread: https://www.reddit.com/r/python/comments/abc123/my_post/")
+
+# Read a YouTube video → saves full transcript
+result = run("Watch this: https://youtube.com/watch?v=dQw4w9WgXcQ")
+
+# Read any article → extracts clean content
+result = run("Interesting read: https://example.com/blog/ai-agents-2026")
+
+# Batch process multiple URLs at once
+result = run("""
+  Here are some links to read:
+  https://x.com/user/status/123456
+  https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
+  https://youtube.com/watch?v=dQw4w9WgXcQ
+  https://example.com/article
+""")
+```
+
+---
+
+## 📄 Output Format
 
 Every piece of content is saved as a `.md` file with structured YAML frontmatter:
 
@@ -80,53 +140,6 @@ Post body goes here...
 
 ---
 
-## 📦 Installation
-
-```bash
-# Clone the repository
-git clone https://github.com/astonysh/OpenClaw-DeepReeder.git
-cd OpenClaw-DeepReeder
-
-# Create a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install dependencies
-pip install -e .
-```
-
----
-
-## 🚀 Quick Start
-
-```python
-from deepreader_skill import run
-
-# Process a single URL
-result = run("Check out this article: https://example.com/blog/post")
-print(result)
-
-# Process a tweet (uses FxTwitter API automatically)
-result = run("Interesting thread: https://x.com/elonmusk/status/123456")
-print(result)
-
-# Process a Reddit post (uses .json API automatically)
-result = run("Great discussion: https://www.reddit.com/r/python/comments/abc123/my_post/")
-print(result)
-
-# Process multiple URLs at once
-result = run("""
-  Here are some links:
-  https://example.com/article
-  https://youtube.com/watch?v=dQw4w9WgXcQ
-  https://x.com/user/status/123456
-  https://www.reddit.com/r/MachineLearning/comments/xyz789/new_paper/
-""")
-print(result)
-```
-
----
-
 ## 🏗️ Architecture
 
 ```
@@ -146,7 +159,7 @@ deepreader_skill/
     └── youtube.py       # YouTube transcript parser
 ```
 
-### Parser Selection Strategy
+### Router Strategy
 
 ```
 URL detected → is Twitter/X?  → FxTwitter API → Nitter fallback
@@ -159,12 +172,26 @@ URL detected → is Twitter/X?  → FxTwitter API → Nitter fallback
 
 ## 🔧 Configuration
 
-DeepReeder uses sensible defaults out of the box. Configuration can be customized via environment variables:
+DeepReader uses sensible defaults out of the box. Configuration can be customized via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Where to save ingested content |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | Logging verbosity |
+
+---
+
+## 💡 Why DeepReader?
+
+| Feature | DeepReader | Manual scraping | Browser tools |
+|---------|-----------|----------------|---------------|
+| **Trigger** | Automatic on URL | Manual code | Manual action |
+| **Twitter/X** | ✅ Full support | ❌ Blocked | ⚠️ Partial |
+| **Reddit threads** | ✅ + comments | ⚠️ Complex | ⚠️ Slow |
+| **YouTube transcripts** | ✅ Built-in | ❌ Separate tool | ❌ Not available |
+| **API keys needed** | ❌ None | ✅ Often | ✅ Sometimes |
+| **Output format** | Clean Markdown | Raw HTML | Screenshots |
+| **Memory integration** | ✅ Auto-save | ❌ Manual | ❌ Manual |
 
 ---
 
