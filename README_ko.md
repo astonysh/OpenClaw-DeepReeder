@@ -107,6 +107,36 @@ result = run("""
 
 ---
 
+## 📓 NotebookLM & 오디오 통합
+
+이제 DeepReader는 **Google NotebookLM**과 완벽하게 통합됩니다. 
+
+메시지에 `notebooklm`, `audio` 또는 `podcast`와 같은 키워드가 포함 된 경우 DeepReader는 자동으로 다음을 수행합니다:
+1. 요청된 URL을 Markdown으로 파싱합니다.
+2. Google NotebookLM 계정에 새 노트를 만듭니다.
+3. 깔끔한 Markdown 콘텐츠를 소스로 업로드합니다.
+4. **(선택 사항)** 매력적인 오디오 개요(팟캐스트 형식)를 생성하고 에이전트의 메모리 폴더에 직접 다운로드합니다.
+
+**지원되는 NotebookLM 아티팩트 생성:**
+오디오 개요와 함께 이 통합을 쉽게 확장하여 다음을 자동으로 생성하고 저장할 수 있습니다:
+- **🎙️ Audio Overview** (오디오 팟캐스트)
+- **🎥 Video Overview** (비디오 개요)
+- **🧠 Mind Map** (마인드맵)
+- **📄 Reports** (보고서)
+- **📇 Flashcards** (플래시카드)
+- **❓ Quiz** (퀴즈)
+- **📊 Infographic** (인포그래픽)
+- **🖥️ Slide Deck** (슬라이드 덱)
+- **📈 Data Table** (데이터 테이블)
+
+> **⚠️ 참고: 인증 필요**
+> NotebookLM 통합을 사용하기 전에 터미널에서 인증해야 합니다(이 작업은 한 번만 수행하면 됩니다):
+> ```bash
+> notebooklm login
+> ```
+
+---
+
 ## 🏗️ 아키텍처
 
 ```

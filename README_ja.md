@@ -61,6 +61,36 @@ result = run("興味深い記事: https://example.com/blog/ai-agents-2026")
 
 ---
 
+## 📓 NotebookLM & オーディオ統合
+
+DeepReaderは**Google NotebookLM**とシームレスに統合されるようになりました。
+
+メッセージに `notebooklm`、`audio`、または `podcast` などのキーワードが含まれている場合、DeepReaderは自動的に以下を実行します：
+1. リクエストされたURLをMarkdownにパースします。
+2. Google NotebookLMアカウントに新しいノートブックを作成します。
+3. 綺麗なMarkdownコンテンツをソースとしてアップロードします。
+4. **（オプション）** 魅力的なオーディオ概要（ポッドキャスト形式）を生成し、エージェントのメモリフォルダに直接ダウンロードします。
+
+**サポートされているNotebookLM成果物の生成：**
+オーディオ概要に加えて、この統合を簡単に拡張して、以下を自動的に生成および保存できます：
+- **🎙️ Audio Overview**（オーディオポッドキャスト）
+- **🎥 Video Overview**（ビデオ概要）
+- **🧠 Mind Map**（マインドマップ）
+- **📄 Reports**（レポート）
+- **📇 Flashcards**（フラッシュカード）
+- **❓ Quiz**（クイズ）
+- **📊 Infographic**（インフォグラフィック）
+- **🖥️ Slide Deck**（スライドデッキ）
+- **📈 Data Table**（データテーブル）
+
+> **⚠️ 注意：認証が必要**
+> NotebookLM連携を使用する前に、ターミナルで認証を行う必要があります（これは一度だけ行う必要があります）：
+> ```bash
+> notebooklm login
+> ```
+
+---
+
 ## 💡 なぜDeepReader？
 
 | 機能 | DeepReader | 手動スクレイピング | ブラウザツール |

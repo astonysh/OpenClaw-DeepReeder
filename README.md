@@ -107,6 +107,36 @@ result = run("""
 
 ---
 
+## 📓 NotebookLM & Audio Integration
+
+DeepReader now seamlessly integrates with **Google NotebookLM**. 
+
+If your message includes keywords like `notebooklm`, `audio`, or `podcast`, DeepReader will automatically:
+1. Parse the requested URLs into Markdown.
+2. Create a new Notebook in your Google NotebookLM account.
+3. Upload the pristine Markdown content as a source.
+4. **(Optional)** Generate an engaging Audio Overview (podcast format) and download it directly to your agent's memory folder.
+
+**Supported NotebookLM Artifacts Generation:**
+Along with Audio Overviews, this integration can easily be extended to automatically generate and save:
+- **🎙️ Audio Overview** (Podcast)
+- **🎥 Video Overview**
+- **🧠 Mind Map**
+- **📄 Reports**
+- **📇 Flashcards**
+- **❓ Quiz**
+- **📊 Infographic**
+- **🖥️ Slide Deck**
+- **📈 Data Table**
+
+> **⚠️ Note: Authentication Required**
+> Before using the NotebookLM integration, you must authenticate in your terminal (this only needs to be done once):
+> ```bash
+> notebooklm login
+> ```
+
+---
+
 ## 📄 Output Format
 
 Every piece of content is saved as a `.md` file with structured YAML frontmatter:
@@ -201,6 +231,7 @@ DeepReader uses sensible defaults out of the box. Configuration can be customize
 - **[x-tweet-fetcher](https://github.com/ythx-101/x-tweet-fetcher)** — Inspiration for the FxTwitter integration approach
 - **[Trafilatura](https://trafilatura.readthedocs.io/)** — Robust web content extraction
 - **[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)** — YouTube transcript fetching
+- **[notebooklm-py](https://github.com/teng-lin/notebooklm-py)** — Google NotebookLM integration for audio generation
 
 ---
 

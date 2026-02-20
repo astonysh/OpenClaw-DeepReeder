@@ -107,6 +107,36 @@ result = run("""
 
 ---
 
+## 📓 NotebookLM & 音频播客集成
+
+DeepReader 现在无缝集成 **Google NotebookLM**。
+
+如果你的消息包含如 `notebooklm`、`audio` 或 `podcast` 等关键词，DeepReader将自动：
+1. 将请求的 URL 解析成 Markdown。
+2. 在您的 Google NotebookLM 账号下创建一个新的 Notebook。
+3. 将干净的 Markdown 内容作为数据源(Source)上传。
+4. **（可选）** 生成生动的 Audio Overview (播客格式的音频概述) 并直接下载到智能体的记忆文件夹中。
+
+**支持生成的 NotebookLM 制品包含:**
+除了音频播客，该集成很容易扩展为自动生成和保存以下内容的导出：
+- **🎙️ Audio Overview** (音频播客)
+- **🎥 Video Overview** (视频概述)
+- **🧠 Mind Map** (思维导图)
+- **📄 Reports** (报告)
+- **📇 Flashcards** (抽认卡)
+- **❓ Quiz** (测验)
+- **📊 Infographic** (信息图)
+- **🖥️ Slide Deck** (幻灯片)
+- **📈 Data Table** (数据表)
+
+> **⚠️ 注意: 需要进行身份验证(登录)**
+> 在使用 NotebookLM 集成功能之前，您必须先在终端中完成身份验证(仅需操作一次)：
+> ```bash
+> notebooklm login
+> ```
+
+---
+
 ## 🏗️ 架构
 
 ```

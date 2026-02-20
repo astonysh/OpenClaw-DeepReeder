@@ -125,6 +125,31 @@ def run(text: str, **kwargs: Any) -> str:
                     f"   Saved to: `{filepath}`\n"
                     f"   Content: {len(parse_result.content)} characters"
                 )
+                
+                # --- NotebookLM Integration ---
+                text_lower = text.lower()
+                use_notebooklm = "notebooklm" in text_lower or "audio" in text_lower or "podcast" in text_lower
+                generate_audio = "audio" in text_lower or "podcast" in text_lower
+                
+                if use_notebooklm:
+                    logger.info("NotebookLM integration triggered for %s", filepath)
+                    from .integrations.notebooklm import NotebookLMIntegration
+                    nl_integration = NotebookLMIntegration()
+                    
+                    nl_result = nl_integration.run_sync(
+                        filepath=filepath,
+                        title=parse_result.title or "DeepReader Document",
+                        generate_audio=generate_audio
+                    )
+                    
+                    if "error" in nl_result:
+                        errors.append(f"❌ NotebookLM upload failed: {nl_result['error']}")
+                    else:
+                        nb_id = nl_result.get("notebook_id")
+                        success_msg += f"\n   📓 Notebook ID: {nb_id}"
+                        if generate_audio and "audio_path" in nl_result:
+                            success_msg += f"\n   🎙️ Audio Output: `{nl_result['audio_path']}`"
+
                 results.append(success_msg)
                 logger.info("Successfully saved %s", filepath)
             except OSError as exc:

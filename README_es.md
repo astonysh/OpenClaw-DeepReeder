@@ -107,6 +107,36 @@ result = run("""
 
 ---
 
+## 📓 Integración de NotebookLM & Audio
+
+DeepReader ahora se integra perfectamente con **Google NotebookLM**. 
+
+Si tu mensaje incluye palabras clave como `notebooklm`, `audio` o `podcast`, DeepReader automáticamente:
+1. Analizará las URLs solicitadas en Markdown.
+2. Creará un nuevo Cuaderno (Notebook) en tu cuenta de Google NotebookLM.
+3. Subirá el contenido Markdown impecable como fuente.
+4. **(Opcional)** Generará un Audio Overview (formato podcast) atractivo y lo descargará directamente en la carpeta de memoria de tu agente.
+
+**Generación de Artefactos de NotebookLM Soportados:**
+Junto con los Resúmenes de Audio, esta integración se puede extender fácilmente para generar y guardar automáticamente:
+- **🎙️ Audio Overview** (Podcast)
+- **🎥 Video Overview** (Resumen en Vídeo)
+- **🧠 Mind Map** (Mapa Mental)
+- **📄 Reports** (Informes)
+- **📇 Flashcards** (Tarjetas de Estudio)
+- **❓ Quiz** (Cuestionario)
+- **📊 Infographic** (Infografía)
+- **🖥️ Slide Deck** (Presentación)
+- **📈 Data Table** (Tabla de Datos)
+
+> **⚠️ Nota: Autenticación Requerida**
+> Antes de usar la integración con NotebookLM, debes autenticarte en tu terminal (esto solo se requiere una vez):
+> ```bash
+> notebooklm login
+> ```
+
+---
+
 ## 🏗️ Arquitectura
 
 ```
