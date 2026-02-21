@@ -27,7 +27,7 @@ pip install -e .
 
 ## 🎯 Use When
 
-- You need to **read a tweet, thread, or X article** and add it to OpenClaw's memory
+- You need to **read a tweet, thread, X article, or X profile** and add it to OpenClaw's memory
 - You need to **ingest a Reddit post** with top comments and discussion context
 - You want to **save a YouTube transcript** for later reference or analysis
 - You want to **clip any blog, article, or documentation page** into clean Markdown
@@ -39,7 +39,7 @@ pip install -e .
 
 | Parser | Sources | Method | API Key? |
 |--------|---------|--------|----------|
-| 🐦 **Twitter / X** | Tweets, threads, X Articles | [FxTwitter API](https://github.com/FxEmbed/FxEmbed) + Nitter fallback | ❌ None |
+| 🐦 **Twitter / X** | Tweets, threads, X Articles, Profiles | [FxTwitter API](https://github.com/FxEmbed/FxEmbed) + Nitter fallback | ❌ None |
 | 🟠 **Reddit** | Posts + comment threads | Reddit `.json` API | ❌ None |
 | 🎬 **YouTube** | Video transcripts | [youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api) | ❌ None |
 | 🌐 **Any URL** | Blogs, articles, docs | [Trafilatura](https://trafilatura.readthedocs.io/) + BeautifulSoup | ❌ None |
@@ -61,6 +61,7 @@ Powered by [FxTwitter](https://github.com/FxEmbed/FxEmbed) API with Nitter fallb
 | Media (images, video, GIF) | ✅ URLs extracted |
 | Reply threads | ✅ Via Nitter fallback (first 5) |
 | Engagement stats | ✅ ❤️ likes, 🔁 RTs, 👁️ views, 🔖 bookmarks |
+| Profile metadata | ✅ Basic profile snapshot (name, bio, stats) |
 
 ## 🟠 Reddit — Native JSON Integration
 
@@ -85,6 +86,9 @@ from deepreader_skill import run
 
 # Read a tweet → saves to agent memory
 result = run("Check out this tweet: https://x.com/elonmusk/status/123456")
+
+# Read an X profile → saves profile snapshot
+result = run("https://x.com/thdxr")
 
 # Read a Reddit discussion → captures post + top comments
 result = run("Great thread: https://www.reddit.com/r/python/comments/abc123/my_post/")

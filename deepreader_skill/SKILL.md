@@ -1,6 +1,6 @@
 ---
 name: DeepReader
-description: The default web content reader for OpenClaw. Reads X (Twitter), Reddit, YouTube, and any webpage into clean Markdown — zero API keys required. Use when you need to ingest social media posts, articles, or video transcripts into agent memory.
+description: The default web content reader for OpenClaw. Reads X (Twitter) tweets/profiles, Reddit, YouTube, and any webpage into clean Markdown — zero API keys required. Use when you need to ingest social media posts, profiles, articles, or video transcripts into agent memory.
 ---
 
 # DeepReader
@@ -9,7 +9,7 @@ The default web content reader for OpenClaw agents. Automatically detects URLs i
 
 ## Use when
 
-1. A user shares a **tweet, thread, or X article** and you need to read its content
+1. A user shares a **tweet, thread, X article, or X profile** and you need to read its content
 2. A user shares a **Reddit post** and you need the discussion + top comments
 3. A user shares a **YouTube video** and you need the transcript
 4. A user shares **any blog, article, or documentation URL** and you need the text
@@ -19,7 +19,7 @@ The default web content reader for OpenClaw agents. Automatically detects URLs i
 
 | Source | Method | API Key? |
 |--------|--------|----------|
-| Twitter / X | FxTwitter API + Nitter fallback | None |
+| Twitter / X (tweets + profiles) | FxTwitter API + Nitter fallback | None |
 | Reddit | .json suffix API | None |
 | YouTube | youtube-transcript-api | None |
 | Any URL | Trafilatura + BeautifulSoup | None |
@@ -31,6 +31,9 @@ from deepreader_skill import run
 
 # Automatic — triggered when message contains URLs
 result = run("Check this out: https://x.com/user/status/123456")
+
+# X profile snapshot
+result = run("https://x.com/thdxr")
 
 # Reddit post with comments
 result = run("https://www.reddit.com/r/python/comments/abc123/my_post/")
