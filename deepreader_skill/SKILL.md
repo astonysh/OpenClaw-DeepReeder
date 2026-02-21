@@ -69,8 +69,8 @@ word_count: 350
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Where to save ingested content |
-| `DEEPREEDER_LOG_LEVEL` | `INFO` | Logging verbosity |
+| `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Where to save ingested content (absolute path, or relative to repo root) |
+| `DEEPREEDER_LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
 
 ## How it works
 

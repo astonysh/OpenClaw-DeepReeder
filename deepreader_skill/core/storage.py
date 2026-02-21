@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 import uuid
 from datetime import datetime, timezone
@@ -62,12 +63,25 @@ class StorageManager:
                         directory.  Defaults to ``../../memory/inbox/``
                         relative to this file.
         """
-        if memory_dir is None:
-            # Default: ../../memory/inbox/ relative to the skill package
-            skill_root = Path(__file__).resolve().parent.parent
-            self._memory_dir = skill_root.parent.parent / "memory" / "inbox"
+        # Base directory used for resolving relative paths
+        skill_root = Path(__file__).resolve().parent.parent
+        repo_root = skill_root.parent.parent
+
+        env_memory_dir = os.getenv("DEEPREEDER_MEMORY_PATH", "").strip()
+
+        if memory_dir is not None:
+            target = Path(memory_dir)
+        elif env_memory_dir:
+            target = Path(env_memory_dir).expanduser()
         else:
-            self._memory_dir = Path(memory_dir)
+            # Default: ../../memory/inbox/ relative to the skill package
+            target = repo_root / "memory" / "inbox"
+
+        # Resolve relative paths against repository root for predictable behavior
+        if not target.is_absolute():
+            target = (repo_root / target).resolve()
+
+        self._memory_dir = target
 
         logger.info("StorageManager target directory: %s", self._memory_dir)
 
