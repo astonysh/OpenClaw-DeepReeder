@@ -111,11 +111,15 @@ result = run("""
 
 DeepReader now seamlessly integrates with **Google NotebookLM**. 
 
-If your message includes keywords like `notebooklm`, `audio`, or `podcast`, DeepReader will automatically:
+Use explicit flags to opt in:
+- `--notebooklm` (or `/notebooklm`) → upload to NotebookLM
+- `--audio` / `--podcast` (or `/audio`) → upload + generate Audio Overview
+
+When these flags are present, DeepReader will:
 1. Parse the requested URLs into Markdown.
 2. Create a new Notebook in your Google NotebookLM account.
-3. Upload the pristine Markdown content as a source.
-4. **(Optional)** Generate an engaging Audio Overview (podcast format) and download it directly to your agent's memory folder.
+3. Upload the Markdown content as a source.
+4. **(Optional)** Generate an Audio Overview and download it to the memory folder.
 
 **Supported NotebookLM Artifacts Generation:**
 Along with Audio Overviews, this integration can easily be extended to automatically generate and save:

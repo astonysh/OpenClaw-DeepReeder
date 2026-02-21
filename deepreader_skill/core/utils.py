@@ -8,10 +8,12 @@ filename sanitization, and content hashing.
 from __future__ import annotations
 
 import hashlib
+import ipaddress
 import re
+import socket
 import unicodedata
 from datetime import datetime, timezone
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import tldextract
 
@@ -41,13 +43,123 @@ def extract_urls(text: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# URL Safety Helpers
+# ---------------------------------------------------------------------------
+
+_ALLOWED_SCHEMES = {"http", "https"}
+_BLOCKED_HOSTS = {
+    "localhost",
+    "localhost.localdomain",
+}
+_BLOCKED_HOST_SUFFIXES = (
+    ".local",
+    ".internal",
+    ".lan",
+    ".home",
+)
+
+
+def _is_non_public_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Return ``True`` for loopback/private/link-local/etc. addresses."""
+    return any(
+        [
+            ip.is_private,
+            ip.is_loopback,
+            ip.is_link_local,
+            ip.is_multicast,
+            ip.is_reserved,
+            ip.is_unspecified,
+        ]
+    )
+
+
+def _resolve_ips(hostname: str) -> set[str]:
+    """Resolve hostname to IPs (both v4/v6 when available)."""
+    ips: set[str] = set()
+    for result in socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP):
+        sockaddr = result[4]
+        if sockaddr:
+            ips.add(sockaddr[0])
+    return ips
+
+
+def validate_external_url(url: str) -> tuple[bool, str]:
+    """Validate that *url* is safe for outbound fetches.
+
+    Blocks local/internal destinations to mitigate SSRF.
+    """
+    parsed = urlparse(url)
+
+    if parsed.scheme.lower() not in _ALLOWED_SCHEMES:
+        return False, "Only http/https URLs are allowed."
+
+    hostname = (parsed.hostname or "").strip().lower().rstrip(".")
+    if not hostname:
+        return False, "URL is missing a hostname."
+
+    if hostname in _BLOCKED_HOSTS or any(hostname.endswith(s) for s in _BLOCKED_HOST_SUFFIXES):
+        return False, "Local/internal hostnames are blocked."
+
+    # Literal IP host
+    try:
+        ip_obj = ipaddress.ip_address(hostname)
+        if _is_non_public_ip(ip_obj):
+            return False, f"Blocked non-public IP: {ip_obj}"
+        return True, ""
+    except ValueError:
+        pass
+
+    # DNS hostname
+    try:
+        resolved_ips = _resolve_ips(hostname)
+    except socket.gaierror as exc:
+        return False, f"DNS resolution failed: {exc}"
+
+    if not resolved_ips:
+        return False, "DNS resolution returned no IP addresses."
+
+    for ip_str in resolved_ips:
+        ip_obj = ipaddress.ip_address(ip_str)
+        if _is_non_public_ip(ip_obj):
+            return False, f"Hostname resolves to non-public IP: {ip_str}"
+
+    return True, ""
+
+
+def redact_url_for_log(url: str) -> str:
+    """Redact query/fragment from URLs before logging."""
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        return url
+
+    cleaned = urlunparse(parsed._replace(query="", fragment=""))
+    if parsed.query or parsed.fragment:
+        return f"{cleaned} [query redacted]"
+    return cleaned
+
+
+# ---------------------------------------------------------------------------
 # Domain Helpers
 # ---------------------------------------------------------------------------
 
 def get_domain(url: str) -> str:
-    """Return the registered domain of *url* (e.g. ``'twitter.com'``)."""
+    """Return a normalized domain label for *url*."""
+    hostname = (urlparse(url).hostname or "").lower()
+    if not hostname:
+        return "unknown"
+
+    try:
+        ipaddress.ip_address(hostname)
+        return hostname
+    except ValueError:
+        pass
+
     extracted = tldextract.extract(url)
-    return f"{extracted.domain}.{extracted.suffix}".lower()
+    if extracted.domain and extracted.suffix:
+        return f"{extracted.domain}.{extracted.suffix}".lower()
+    if extracted.domain:
+        return extracted.domain.lower()
+    return hostname
 
 
 def get_domain_tag(url: str) -> str:
