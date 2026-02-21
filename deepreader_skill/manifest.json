@@ -14,8 +14,8 @@
   "triggers": [
     {
       "type": "message",
-      "pattern": "https?://",
-      "description": "Triggers when a user message contains a URL."
+      "pattern": "(?i)(?:read|fetch|save|summary|summarize|extract|parse|/read)\\s+https?://",
+      "description": "Triggers when a user requests to read a URL based on specific keywords."
     }
   ],
   "capabilities": [

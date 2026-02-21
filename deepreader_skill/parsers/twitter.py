@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import random
 import re
 import time
@@ -47,11 +48,12 @@ from .base import BaseParser, ParseResult
 logger = logging.getLogger("deepreader.parsers.twitter")
 
 
-# ---------------------------------------------------------------------------
 # Known public Nitter instances (community-maintained)
 # Used only as fallback for reply-thread extraction.
+# Can be overridden by setting the `NITTER_INSTANCES` environment variable
+# (comma-separated list of URLs).
 # ---------------------------------------------------------------------------
-NITTER_INSTANCES: list[str] = [
+_default_nitter = [
     "https://nitter.privacydev.net",
     "https://nitter.poast.org",
     "https://nitter.woodland.cafe",
@@ -61,6 +63,11 @@ NITTER_INSTANCES: list[str] = [
     "https://nitter.d420.de",
     "https://nitter.moomoo.me",
 ]
+NITTER_INSTANCES: list[str] = (
+    os.getenv("NITTER_INSTANCES").split(",")
+    if os.getenv("NITTER_INSTANCES")
+    else _default_nitter
+)
 
 
 class TwitterParser(BaseParser):
@@ -136,7 +143,8 @@ class TwitterParser(BaseParser):
         self, original_url: str, username: str, tweet_id: str,
     ) -> ParseResult:
         """Fetch tweet via the FxTwitter public JSON API."""
-        api_url = f"https://api.fxtwitter.com/{username}/status/{tweet_id}"
+        api_base = os.getenv("FXTWITTER_API_URL", "https://api.fxtwitter.com").rstrip("/")
+        api_url = f"{api_base}/{username}/status/{tweet_id}"
 
         max_attempts = 2
         last_error = ""
