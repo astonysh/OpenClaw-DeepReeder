@@ -28,7 +28,7 @@ from typing import Any
 
 from .core.router import ParserRouter
 from .core.storage import StorageManager
-from .core.utils import extract_urls
+from .core.utils import extract_urls, redact_url_for_log, validate_external_url
 
 __version__ = "1.0.0"
 __all__ = ["run"]
@@ -69,6 +69,23 @@ def _get_storage() -> StorageManager:
     return _storage
 
 
+_NOTEBOOKLM_FLAGS = ("--notebooklm", "/notebooklm", "#notebooklm")
+_AUDIO_FLAGS = ("--audio", "/audio", "--podcast", "/podcast")
+
+
+def _parse_notebooklm_flags(text: str) -> tuple[bool, bool]:
+    """Parse explicit NotebookLM/audio flags from the user message."""
+    lowered = text.lower()
+    use_notebooklm = any(flag in lowered for flag in _NOTEBOOKLM_FLAGS)
+    generate_audio = any(flag in lowered for flag in _AUDIO_FLAGS)
+
+    # Audio implies NotebookLM usage.
+    if generate_audio:
+        use_notebooklm = True
+
+    return use_notebooklm, generate_audio
+
+
 # ---------------------------------------------------------------------------
 # Public API — OpenClaw Entry Point
 # ---------------------------------------------------------------------------
@@ -97,12 +114,23 @@ def run(text: str, **kwargs: Any) -> str:
 
         router = _get_router()
         storage = _get_storage()
+        use_notebooklm, generate_audio = _parse_notebooklm_flags(text)
 
         results: list[str] = []
         errors: list[str] = []
 
         for url in urls:
-            logger.info("Processing URL: %s", url)
+            safe, reason = validate_external_url(url)
+            if not safe:
+                error_msg = (
+                    f"❌ Blocked **{url}**\n"
+                    f"   Reason: {reason}"
+                )
+                errors.append(error_msg)
+                logger.warning("Blocked URL %s: %s", redact_url_for_log(url), reason)
+                continue
+
+            logger.info("Processing URL: %s", redact_url_for_log(url))
 
             # Step 2: Route to the correct parser
             parse_result = router.route(url)
@@ -113,7 +141,7 @@ def run(text: str, **kwargs: Any) -> str:
                     f"   Reason: {parse_result.error}"
                 )
                 errors.append(error_msg)
-                logger.warning("Parse failed for %s: %s", url, parse_result.error)
+                logger.warning("Parse failed for %s: %s", redact_url_for_log(url), parse_result.error)
                 continue
 
             # Step 3: Save to memory
@@ -126,22 +154,18 @@ def run(text: str, **kwargs: Any) -> str:
                     f"   Content: {len(parse_result.content)} characters"
                 )
                 
-                # --- NotebookLM Integration ---
-                text_lower = text.lower()
-                use_notebooklm = "notebooklm" in text_lower or "audio" in text_lower or "podcast" in text_lower
-                generate_audio = "audio" in text_lower or "podcast" in text_lower
-                
+                # --- NotebookLM Integration (explicit opt-in flags only) ---
                 if use_notebooklm:
                     logger.info("NotebookLM integration triggered for %s", filepath)
                     from .integrations.notebooklm import NotebookLMIntegration
                     nl_integration = NotebookLMIntegration()
-                    
+
                     nl_result = nl_integration.run_sync(
                         filepath=filepath,
                         title=parse_result.title or "DeepReader Document",
-                        generate_audio=generate_audio
+                        generate_audio=generate_audio,
                     )
-                    
+
                     if "error" in nl_result:
                         errors.append(f"❌ NotebookLM upload failed: {nl_result['error']}")
                     else:
@@ -152,13 +176,13 @@ def run(text: str, **kwargs: Any) -> str:
 
                 results.append(success_msg)
                 logger.info("Successfully saved %s", filepath)
-            except OSError as exc:
+            except Exception as exc:  # noqa: BLE001
                 error_msg = (
-                    f"❌ Parsed **{url}** but failed to save.\n"
+                    f"❌ Parsed **{url}** but failed during save/post-processing.\n"
                     f"   Error: {exc}"
                 )
                 errors.append(error_msg)
-                logger.error("Storage error for %s: %s", url, exc)
+                logger.error("Storage/post-process error for %s: %s", redact_url_for_log(url), exc)
 
         # Step 4: Build the response
         response_parts: list[str] = []

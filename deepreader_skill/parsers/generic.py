@@ -23,6 +23,13 @@ class GenericParser(BaseParser):
     """Extract main content from any web page using trafilatura."""
 
     name = "generic"
+    max_response_bytes = 5_000_000
+    _allowed_content_types = (
+        "text/html",
+        "application/xhtml+xml",
+        "application/xml",
+        "text/plain",
+    )
 
     def parse(self, url: str) -> ParseResult:
         """Fetch *url* and extract the article body via trafilatura."""
@@ -62,15 +69,39 @@ class GenericParser(BaseParser):
     # ------------------------------------------------------------------
 
     def _fetch_html(self, url: str) -> str | None:
-        """Download the raw HTML content of *url*."""
-        response = requests.get(
+        """Download HTML with redirect + size/content-type safety checks."""
+        from ..core.utils import validate_external_url
+
+        with requests.get(
             url,
             headers=self._get_headers(),
             timeout=self.timeout,
             allow_redirects=True,
-        )
-        response.raise_for_status()
-        return response.text
+            stream=True,
+        ) as response:
+            response.raise_for_status()
+
+            final_url = response.url or url
+            safe, reason = validate_external_url(final_url)
+            if not safe:
+                raise requests.RequestException(f"Blocked redirect target: {reason}")
+
+            content_type = (response.headers.get("Content-Type") or "").lower()
+            if content_type and not any(ct in content_type for ct in self._allowed_content_types):
+                raise requests.RequestException(f"Unsupported content type: {content_type}")
+
+            body = bytearray()
+            for chunk in response.iter_content(chunk_size=8192):
+                if not chunk:
+                    continue
+                body.extend(chunk)
+                if len(body) > self.max_response_bytes:
+                    raise requests.RequestException(
+                        f"Response exceeds {self.max_response_bytes} bytes limit"
+                    )
+
+            encoding = response.encoding or response.apparent_encoding or "utf-8"
+            return body.decode(encoding, errors="replace")
 
     def _extract_with_trafilatura(self, url: str, html: str) -> ParseResult | None:
         """Use trafilatura to extract structured content."""

@@ -7,16 +7,40 @@ YAML frontmatter and persisting it to the agent's memory directory.
 
 from __future__ import annotations
 
+import json
 import logging
-import os
+import re
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from ..core.utils import build_filename, content_hash, generate_excerpt, get_domain, get_domain_tag
+from ..core.utils import build_filename, content_hash, generate_excerpt, get_domain_tag
 from ..parsers.base import ParseResult
 
 logger = logging.getLogger("deepreader.storage")
+
+_TAG_UNSAFE = re.compile(r"[^a-z0-9_-]+")
+
+
+def _yaml_quote(value: str) -> str:
+    """Return a YAML-safe quoted scalar using JSON string escaping."""
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _sanitize_metadata_value(value: str, max_length: int = 300) -> str:
+    """Normalize untrusted metadata fields for frontmatter safety."""
+    normalized = value.replace("\x00", " ").replace("\r", " ").replace("\n", " ").strip()
+    if len(normalized) > max_length:
+        normalized = normalized[:max_length].rstrip()
+    return normalized
+
+
+def _sanitize_tag(tag: str) -> str:
+    """Normalize arbitrary tags to a strict slug-ish format."""
+    value = _sanitize_metadata_value(tag, max_length=80).lower().replace(" ", "-")
+    value = _TAG_UNSAFE.sub("-", value)
+    value = re.sub(r"-{2,}", "-", value).strip("-")
+    return value or "tag"
 
 
 class StorageManager:
@@ -109,43 +133,45 @@ class StorageManager:
         """
         doc_uuid = str(uuid.uuid4())
         iso_date = datetime.now(timezone.utc).isoformat()
-        domain = get_domain(result.url)
         domain_tag = get_domain_tag(result.url)
 
         # Build tags list
         tags = ["imported", domain_tag]
         if result.tags:
             tags.extend(result.tags)
-        # Deduplicate while preserving order
+
+        # Deduplicate while preserving order + sanitize
         seen: set[str] = set()
         unique_tags: list[str] = []
         for tag in tags:
-            if tag not in seen:
-                seen.add(tag)
-                unique_tags.append(tag)
-        tags_str = ", ".join(unique_tags)
+            clean_tag = _sanitize_tag(str(tag))
+            if clean_tag not in seen:
+                seen.add(clean_tag)
+                unique_tags.append(clean_tag)
 
-        # Escape title for YAML (handle quotes)
-        safe_title = result.title.replace('"', '\\"') if result.title else ""
-        safe_author = result.author.replace('"', '\\"') if result.author else ""
+        safe_title = _sanitize_metadata_value(result.title) if result.title else ""
+        safe_author = _sanitize_metadata_value(result.author) if result.author else ""
 
         # Build the excerpt / summary
-        excerpt = result.excerpt or generate_excerpt(result.content)
+        excerpt = _sanitize_metadata_value(result.excerpt or generate_excerpt(result.content), max_length=600)
 
         # Assemble the document
         lines: list[str] = [
             "---",
             f"uuid: {doc_uuid}",
-            f'source: "{result.url}"',
+            f"source: {_yaml_quote(result.url)}",
             f"date: {iso_date}",
             "type: external_resource",
-            f"tags: [{tags_str}]",
+            "tags:",
         ]
 
+        for tag in unique_tags:
+            lines.append(f"  - {_yaml_quote(tag)}")
+
         if safe_title:
-            lines.append(f'title: "{safe_title}"')
+            lines.append(f"title: {_yaml_quote(safe_title)}")
         if safe_author:
-            lines.append(f'author: "{safe_author}"')
+            lines.append(f"author: {_yaml_quote(safe_author)}")
 
         c_hash = content_hash(result.content)
         lines.append(f"content_hash: {c_hash}")
@@ -153,7 +179,8 @@ class StorageManager:
         lines.append("")
 
         # Heading
-        lines.append(f"# {result.title or 'Untitled'}")
+        heading_title = safe_title or "Untitled"
+        lines.append(f"# {heading_title}")
         lines.append("")
 
         # Summary section

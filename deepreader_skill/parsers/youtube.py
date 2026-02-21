@@ -23,6 +23,8 @@ class YouTubeParser(BaseParser):
 
     name = "youtube"
     timeout = 25
+    max_metadata_bytes = 2_000_000
+    _allowed_content_types = ("text/html", "application/xhtml+xml")
 
     # Preferred language codes for transcripts (in priority order).
     preferred_languages: list[str] = ["en", "zh-Hans", "zh-Hant", "zh", "ja", "ko", "de", "fr", "es"]
@@ -194,10 +196,41 @@ class YouTubeParser(BaseParser):
 
         Returns ``(title, author, description)``.
         """
+        from ..core.utils import validate_external_url
+
         try:
-            resp = requests.get(url, headers=self._get_headers(), timeout=self.timeout)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "lxml")
+            with requests.get(
+                url,
+                headers=self._get_headers(),
+                timeout=self.timeout,
+                allow_redirects=True,
+                stream=True,
+            ) as resp:
+                resp.raise_for_status()
+
+                final_url = resp.url or url
+                safe, reason = validate_external_url(final_url)
+                if not safe:
+                    raise requests.RequestException(f"Blocked redirect target: {reason}")
+
+                content_type = (resp.headers.get("Content-Type") or "").lower()
+                if content_type and not any(ct in content_type for ct in self._allowed_content_types):
+                    raise requests.RequestException(f"Unsupported content type: {content_type}")
+
+                body = bytearray()
+                for chunk in resp.iter_content(chunk_size=8192):
+                    if not chunk:
+                        continue
+                    body.extend(chunk)
+                    if len(body) > self.max_metadata_bytes:
+                        raise requests.RequestException(
+                            f"Metadata page exceeds {self.max_metadata_bytes} bytes limit"
+                        )
+
+                encoding = resp.encoding or resp.apparent_encoding or "utf-8"
+                html = body.decode(encoding, errors="replace")
+
+            soup = BeautifulSoup(html, "lxml")
 
             # Title: <meta property="og:title">
             title = ""
