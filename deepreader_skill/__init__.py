@@ -24,6 +24,7 @@ Supported URL types:
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any
 
 from .core.router import ParserRouter
@@ -45,7 +46,10 @@ if not logger.handlers:
         )
     )
     logger.addHandler(handler)
-    logger.setLevel(logging.INFO)
+
+_log_level_name = os.getenv("DEEPREEDER_LOG_LEVEL", "INFO").upper()
+_log_level = getattr(logging, _log_level_name, logging.INFO)
+logger.setLevel(_log_level)
 
 
 # ---------------------------------------------------------------------------

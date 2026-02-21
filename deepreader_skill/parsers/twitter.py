@@ -75,6 +75,8 @@ class TwitterParser(BaseParser):
 
     # Maximum Nitter instances to try for reply extraction.
     max_nitter_retries: int = 3
+    max_nitter_response_bytes: int = 3_000_000
+    _nitter_allowed_content_types = ("text/html", "application/xhtml+xml")
 
     def can_handle(self, url: str) -> bool:
         """Return ``True`` for twitter.com / x.com URLs."""
@@ -310,13 +312,40 @@ class TwitterParser(BaseParser):
 
     def _parse_nitter_page(self, original_url: str, nitter_url: str) -> ParseResult:
         """Fetch and parse a single Nitter page."""
-        resp = requests.get(
+        from ..core.utils import validate_external_url
+
+        with requests.get(
             nitter_url,
             headers=self._get_headers(),
             timeout=self.timeout,
-        )
-        resp.raise_for_status()
-        soup = BeautifulSoup(resp.text, "lxml")
+            allow_redirects=True,
+            stream=True,
+        ) as resp:
+            resp.raise_for_status()
+
+            final_url = resp.url or nitter_url
+            safe, reason = validate_external_url(final_url)
+            if not safe:
+                raise requests.RequestException(f"Blocked redirect target: {reason}")
+
+            content_type = (resp.headers.get("Content-Type") or "").lower()
+            if content_type and not any(ct in content_type for ct in self._nitter_allowed_content_types):
+                raise requests.RequestException(f"Unsupported content type: {content_type}")
+
+            body = bytearray()
+            for chunk in resp.iter_content(chunk_size=8192):
+                if not chunk:
+                    continue
+                body.extend(chunk)
+                if len(body) > self.max_nitter_response_bytes:
+                    raise requests.RequestException(
+                        f"Nitter response exceeds {self.max_nitter_response_bytes} bytes limit"
+                    )
+
+            encoding = resp.encoding or resp.apparent_encoding or "utf-8"
+            html = body.decode(encoding, errors="replace")
+
+        soup = BeautifulSoup(html, "lxml")
 
         tweet_div = soup.find("div", class_="tweet-content") or soup.find(
             "div", class_="main-tweet"
