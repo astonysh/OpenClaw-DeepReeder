@@ -77,6 +77,9 @@ class TwitterParser(BaseParser):
     max_nitter_retries: int = 3
     max_nitter_response_bytes: int = 3_000_000
     _nitter_allowed_content_types = ("text/html", "application/xhtml+xml")
+    _profile_reserved_paths = {
+        "home", "explore", "search", "messages", "notifications", "settings", "i",
+    }
 
     def can_handle(self, url: str) -> bool:
         """Return ``True`` for twitter.com / x.com URLs."""
@@ -84,9 +87,13 @@ class TwitterParser(BaseParser):
         return is_twitter_url(url)
 
     def parse(self, url: str) -> ParseResult:
-        """Attempt to read a tweet — FxTwitter first, Nitter fallback."""
+        """Attempt to read a tweet/profile — FxTwitter first, Nitter fallback."""
         tweet_info = self._extract_tweet_info(url)
         if not tweet_info:
+            profile_username = self._extract_profile_username(url)
+            if profile_username:
+                return self._parse_profile_fxtwitter(url, profile_username)
+
             return ParseResult.failure(
                 url,
                 "Could not extract a valid tweet path from this URL. "
@@ -168,6 +175,95 @@ class TwitterParser(BaseParser):
                 break
 
         return ParseResult.failure(original_url, last_error)
+
+    def _parse_profile_fxtwitter(self, original_url: str, username: str) -> ParseResult:
+        """Fetch and format X profile metadata via FxTwitter."""
+        from ..core.utils import clean_text, generate_excerpt
+
+        api_url = f"https://api.fxtwitter.com/{username}"
+
+        try:
+            req = urllib.request.Request(
+                api_url,
+                headers={"User-Agent": "Mozilla/5.0"},
+            )
+            with urllib.request.urlopen(req, timeout=self.timeout) as resp:
+                data = json.loads(resp.read().decode())
+
+            if data.get("code") != 200:
+                return ParseResult.failure(
+                    original_url,
+                    f"FxTwitter returned code {data.get('code')}: {data.get('message', 'Unknown')}",
+                )
+
+            user = data.get("user") or {}
+            if not user:
+                return ParseResult.failure(original_url, "FxTwitter returned empty profile data")
+
+            screen_name = user.get("screen_name", username)
+            name = user.get("name", "")
+            description = user.get("description", "")
+            followers = user.get("followers", 0)
+            following = user.get("following", 0)
+            likes = user.get("likes", 0)
+            tweets = user.get("tweets", 0)
+            media_count = user.get("media_count", 0)
+            joined = user.get("joined", "")
+            location = user.get("location", "")
+            protected = user.get("protected", False)
+
+            website_data = user.get("website") or {}
+            if isinstance(website_data, dict):
+                website = website_data.get("url") or website_data.get("display_url") or ""
+            else:
+                website = str(website_data)
+
+            verification_data = user.get("verification") or {}
+            verified = False
+            if isinstance(verification_data, dict):
+                verified = bool(verification_data.get("verified"))
+            elif isinstance(verification_data, bool):
+                verified = verification_data
+
+            content_parts = [
+                f"# X Profile: @{screen_name}",
+                "",
+                f"**Name:** {name}" if name else "",
+                f"**Bio:** {description}" if description else "",
+                f"**Location:** {location}" if location else "",
+                f"**Website:** {website}" if website else "",
+                f"**Joined:** {joined}" if joined else "",
+                f"**Verified:** {'Yes' if verified else 'No'}",
+                f"**Protected:** {'Yes' if protected else 'No'}",
+                "",
+                "## Stats",
+                f"- Followers: {followers:,}",
+                f"- Following: {following:,}",
+                f"- Tweets: {tweets:,}",
+                f"- Likes: {likes:,}",
+                f"- Media: {media_count:,}",
+                "",
+                f"Source profile: {user.get('url', original_url)}",
+            ]
+
+            content = clean_text("\n".join(part for part in content_parts if part is not None))
+
+            return ParseResult(
+                url=original_url,
+                title=f"X Profile @{screen_name}",
+                content=content,
+                author=f"@{screen_name}",
+                excerpt=generate_excerpt(content),
+                tags=["twitter", "x-profile"],
+            )
+
+        except urllib.error.HTTPError as exc:
+            return ParseResult.failure(original_url, f"HTTP {exc.code}: {exc.reason}")
+        except urllib.error.URLError:
+            return ParseResult.failure(original_url, "Network error: failed to reach FxTwitter API")
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("FxTwitter profile fetch unexpected error: %s", exc)
+            return ParseResult.failure(original_url, f"Unexpected error: {exc}")
 
     def _build_result_from_fxtwitter(
         self, original_url: str, data: dict,
@@ -415,6 +511,21 @@ class TwitterParser(BaseParser):
         )
         if match:
             return match.group(1), match.group(2)
+        return None
+
+    def _extract_profile_username(self, url: str) -> str | None:
+        """Extract username from a profile URL like ``https://x.com/username``."""
+        parsed = urlparse(url)
+        path_parts = [part for part in parsed.path.split("/") if part]
+        if len(path_parts) != 1:
+            return None
+
+        username = path_parts[0]
+        if username.lower() in self._profile_reserved_paths:
+            return None
+
+        if re.fullmatch(r"[a-zA-Z0-9_]{1,15}", username):
+            return username
         return None
 
     @staticmethod
