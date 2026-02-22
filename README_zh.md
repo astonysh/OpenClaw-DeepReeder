@@ -165,6 +165,7 @@ deepreader_skill/
 |------|--------|------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | 保存内容的路径 |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | 日志级别 |
+| `FIRECRAWL_API_KEY` | `""` | 可选。获取受限或付费墙内容的回退 Firecrawl API 密钥 |
 
 ---
 
