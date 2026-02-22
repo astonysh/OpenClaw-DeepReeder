@@ -165,6 +165,7 @@ deepreader_skill/
 |------|--------|------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | 콘텐츠 저장 경로 |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | 로깅 상세 수준 |
+| `FIRECRAWL_API_KEY` | `""` | 선택 사항. 설정 시 차단/유료 콘텐츠를 우회 스크래핑하는 Firecrawl의 폴백으로 사용됩니다. |
 
 ---
 

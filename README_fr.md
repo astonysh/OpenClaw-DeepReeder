@@ -165,6 +165,7 @@ deepreader_skill/
 |----------|-----------|-------------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Chemin de sauvegarde |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | Niveau de verbosité |
+| `FIRECRAWL_API_KEY` | `""` | Optionnel. Clé API Firecrawl utilisée pour contourner les protections (paywalls, etc.) en cas d'échec de la requête initiale. |
 
 ---
 

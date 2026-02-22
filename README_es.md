@@ -165,6 +165,7 @@ deepreader_skill/
 |----------|---------------|-------------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Ruta para guardar contenido |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | Nivel de detalle del registro |
+| `FIRECRAWL_API_KEY` | `""` | Opcional. Si se establece, se usa como respaldo para extraer contenido bloqueado o de pago a través de Firecrawl |
 
 ---
 
