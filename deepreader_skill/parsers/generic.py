@@ -32,37 +32,49 @@ class GenericParser(BaseParser):
     )
 
     def parse(self, url: str) -> ParseResult:
-        """Fetch *url* and extract the article body via trafilatura."""
+        """Fetch *url* and extract the article body via trafilatura, with Firecrawl fallback."""
+        last_error = ""
         try:
             html = self._fetch_html(url)
             if not html:
-                return ParseResult.failure(url, "Failed to download page content.")
+                last_error = "Failed to download page content."
+            else:
+                # ------------------------------------------------------------------
+                # Primary: trafilatura (best for article-style pages)
+                # ------------------------------------------------------------------
+                result = self._extract_with_trafilatura(url, html)
+                if result and result.success and result.content:
+                    logger.info("Trafilatura extracted %d chars from %s", len(result.content), url)
+                    return result
 
-            # ------------------------------------------------------------------
-            # Primary: trafilatura (best for article-style pages)
-            # ------------------------------------------------------------------
-            result = self._extract_with_trafilatura(url, html)
-            if result and result.success and result.content:
-                logger.info("Trafilatura extracted %d chars from %s", len(result.content), url)
-                return result
+                # ------------------------------------------------------------------
+                # Fallback: BeautifulSoup heuristic extraction
+                # ------------------------------------------------------------------
+                logger.info("Trafilatura returned empty, trying BeautifulSoup fallback for %s", url)
+                result = self._extract_with_beautifulsoup(url, html)
+                if result and result.success and result.content:
+                    logger.info("BS4 extracted %d chars from %s", len(result.content), url)
+                    return result
 
-            # ------------------------------------------------------------------
-            # Fallback: BeautifulSoup heuristic extraction
-            # ------------------------------------------------------------------
-            logger.info("Trafilatura returned empty, trying BeautifulSoup fallback for %s", url)
-            result = self._extract_with_beautifulsoup(url, html)
-            if result and result.success and result.content:
-                logger.info("BS4 extracted %d chars from %s", len(result.content), url)
-                return result
-
-            return ParseResult.failure(url, "Could not extract meaningful content from the page.")
+                last_error = "Could not extract meaningful content from the page."
 
         except requests.RequestException as exc:
-            logger.error("HTTP error for %s: %s", url, exc)
-            return ParseResult.failure(url, f"HTTP request failed: {exc}")
+            logger.warning("HTTP error for %s: %s", url, exc)
+            last_error = f"HTTP request failed: {exc}"
         except Exception as exc:  # noqa: BLE001
-            logger.exception("Unexpected error parsing %s", url)
-            return ParseResult.failure(url, f"Unexpected error: {exc}")
+            logger.warning("Unexpected error parsing %s", url)
+            last_error = f"Unexpected error: {exc}"
+
+        # ------------------------------------------------------------------
+        # Final Fallback: Firecrawl (bypasses bot protections, paywalls)
+        # ------------------------------------------------------------------
+        logger.info("Local extraction failed. Trying Firecrawl fallback for %s", url)
+        fc_result = self._extract_with_firecrawl(url)
+        if fc_result and fc_result.success:
+            logger.info("Firecrawl successfully extracted content for %s", url)
+            return fc_result
+
+        return ParseResult.failure(url, f"All extraction methods failed. Local error: {last_error}")
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -188,3 +200,60 @@ class GenericParser(BaseParser):
         soup = BeautifulSoup(html, "lxml")
         tag = soup.find("title")
         return tag.get_text(strip=True) if tag else ""
+
+    def _extract_with_firecrawl(self, url: str) -> ParseResult | None:
+        """Fallback extraction using Firecrawl API to bypass blocks/paywalls."""
+        import os
+        api_key = os.getenv("FIRECRAWL_API_KEY")
+        if not api_key:
+            logger.info("FIRECRAWL_API_KEY not set. Skipping Firecrawl fallback.")
+            return None
+
+        logger.info("Sending %s to Firecrawl API...", url)
+        try:
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            payload = {
+                "url": url,
+                "formats": ["markdown"]
+            }
+            response = requests.post(
+                "https://api.firecrawl.dev/v1/scrape",
+                json=payload,
+                headers=headers,
+                timeout=self.timeout * 2,
+            )
+            response.raise_for_status()
+            
+            data = response.json()
+            if data.get("success"):
+                doc_data = data.get("data", {})
+                markdown = doc_data.get("markdown", "")
+                
+                if not markdown:
+                    return None
+                    
+                metadata = doc_data.get("metadata", {})
+                title = metadata.get("title", "")
+                author = metadata.get("author", "")
+                
+                from ..core.utils import clean_text, generate_excerpt
+                
+                content = clean_text(markdown)
+                if len(content) < 50:
+                    return None
+                    
+                return ParseResult(
+                    url=url,
+                    title=title,
+                    content=content,
+                    author=author,
+                    excerpt=generate_excerpt(content),
+                    tags=["firecrawl-fallback"],
+                )
+        except Exception as exc:
+            logger.warning("Firecrawl fallback HTTP request failed: %s", exc)
+        return None
+

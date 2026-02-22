@@ -216,6 +216,7 @@ DeepReader uses sensible defaults out of the box. Configuration can be customize
 |----------|---------|-------------|
 | `DEEPREEDER_MEMORY_PATH` | `../../memory/inbox/` | Where to save ingested content (absolute path, or relative to repo root) |
 | `DEEPREEDER_LOG_LEVEL` | `INFO` | Logging verbosity (`DEBUG`, `INFO`, `WARNING`, `ERROR`) |
+| `FIRECRAWL_API_KEY` | `""` | Optional. If set, used as a fallback to scrape paywalled/blocked content via [Firecrawl](https://firecrawl.dev) |
 
 ---
 
