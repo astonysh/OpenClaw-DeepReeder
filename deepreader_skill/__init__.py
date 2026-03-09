@@ -24,6 +24,7 @@ Supported URL types:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from .core.router import ParserRouter
@@ -53,6 +54,53 @@ if not logger.handlers:
 # ---------------------------------------------------------------------------
 _router: ParserRouter | None = None
 _storage: StorageManager | None = None
+
+
+_NOTEBOOKLM_KEYWORD_RE = re.compile(
+    r"notebook\s*-?\s*l+\s*m\b",
+    re.IGNORECASE,
+)
+_AUDIO_KEYWORD_RE = re.compile(
+    r"\b(audio|podcast)\b|音频|播客",
+    re.IGNORECASE,
+)
+# Matches patterns like "KB: SomeName", "notebook: SomeName", "add to SomeName",
+# "归档到 KB: SomeName", "推送到 SomeName notebook"
+_TARGET_NOTEBOOK_RE = re.compile(
+    r"""
+    (?:
+        KB\s*:\s*|                          # "KB: Name"
+        notebook\s*:\s*|                    # "notebook: Name"
+        归档到\s*KB\s*:\s*|                 # "归档到 KB: Name"
+        推送到\s*(?:KB\s*:\s*)?|            # "推送到 KB: Name" or "推送到 Name"
+        add\s+to\s+(?:notebook\s+)?|        # "add to notebook Name"
+        写入\s*(?:到\s*)?(?:KB\s*:\s*)?     # "写入到 KB: Name"
+    )
+    ([A-Za-z0-9\u4e00-\u9fff][\w\u4e00-\u9fff\s\-:]*?)  # notebook name
+    (?=\s*(?:notebook|笔记本|$|\n|[,。，]))
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def _wants_notebooklm(text: str) -> bool:
+    return bool(_NOTEBOOKLM_KEYWORD_RE.search(text))
+
+
+def _wants_audio(text: str) -> bool:
+    return bool(_AUDIO_KEYWORD_RE.search(text))
+
+
+def _extract_target_notebook(text: str) -> str | None:
+    """Extract an explicit target notebook name from user message.
+
+    Returns the notebook name string if found, or None to trigger smart routing
+    (auto-match by content title, or create new if no match).
+    """
+    m = _TARGET_NOTEBOOK_RE.search(text)
+    if m:
+        return m.group(1).strip()
+    return None
 
 
 def _get_router() -> ParserRouter:
@@ -127,26 +175,31 @@ def run(text: str, **kwargs: Any) -> str:
                 )
                 
                 # --- NotebookLM Integration ---
-                text_lower = text.lower()
-                use_notebooklm = "notebooklm" in text_lower or "audio" in text_lower or "podcast" in text_lower
-                generate_audio = "audio" in text_lower or "podcast" in text_lower
+                use_notebooklm = _wants_notebooklm(text) or _wants_audio(text)
+                generate_audio = _wants_audio(text)
                 
                 if use_notebooklm:
                     logger.info("NotebookLM integration triggered for %s", filepath)
                     from .integrations.notebooklm import NotebookLMIntegration
                     nl_integration = NotebookLMIntegration()
-                    
+
+                    target_notebook = _extract_target_notebook(text)
+                    logger.info("Target notebook: %s", target_notebook or "(smart routing)")
+
                     nl_result = nl_integration.run_sync(
                         filepath=filepath,
                         title=parse_result.title or "DeepReader Document",
-                        generate_audio=generate_audio
+                        generate_audio=generate_audio,
+                        target_notebook=target_notebook,
                     )
-                    
+
                     if "error" in nl_result:
                         errors.append(f"❌ NotebookLM upload failed: {nl_result['error']}")
                     else:
-                        nb_id = nl_result.get("notebook_id")
-                        success_msg += f"\n   📓 Notebook ID: {nb_id}"
+                        nb_title = nl_result.get("notebook_title") or nl_result.get("notebook_id")
+                        action = nl_result.get("action", "")
+                        action_label = "added to existing" if action == "added_to_existing" else "created new"
+                        success_msg += f"\n   📓 Notebook: **{nb_title}** ({action_label})"
                         if generate_audio and "audio_path" in nl_result:
                             success_msg += f"\n   🎙️ Audio Output: `{nl_result['audio_path']}`"
 
