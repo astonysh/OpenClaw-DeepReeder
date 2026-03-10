@@ -82,6 +82,18 @@ class TwitterParser(BaseParser):
 
     # Maximum Nitter instances to try for reply extraction.
     max_nitter_retries: int = 3
+
+    @staticmethod
+    def _format_metric(value: object) -> str:
+        """Render optional engagement counts without crashing on nulls."""
+        if value is None:
+            return "n/a"
+        if isinstance(value, bool):
+            return "1" if value else "0"
+        try:
+            return f"{int(value):,}"
+        except (TypeError, ValueError):
+            return "n/a"
     max_nitter_response_bytes: int = 3_000_000
     _nitter_allowed_content_types = ("text/html", "application/xhtml+xml")
     _profile_reserved_paths = {
@@ -289,11 +301,11 @@ class TwitterParser(BaseParser):
 
         # --- Engagement stats ---
         stats_line = (
-            f"❤️ {tweet.get('likes', 0):,}  "
-            f"🔁 {tweet.get('retweets', 0):,}  "
-            f"🔖 {tweet.get('bookmarks', 0):,}  "
-            f"👁️ {tweet.get('views', 0):,}  "
-            f"💬 {tweet.get('replies', 0):,}"
+            f"❤️ {self._format_metric(tweet.get('likes'))}  "
+            f"🔁 {self._format_metric(tweet.get('retweets'))}  "
+            f"🔖 {self._format_metric(tweet.get('bookmarks'))}  "
+            f"👁️ {self._format_metric(tweet.get('views'))}  "
+            f"💬 {self._format_metric(tweet.get('replies'))}"
         )
 
         content_parts: list[str] = []
@@ -340,9 +352,9 @@ class TwitterParser(BaseParser):
             content_parts.append("\n\n---\n### 🔁 Quoted Tweet\n")
             content_parts.append(f"> **@{qt_author}**: {qt_text}\n")
             qt_stats = (
-                f"> ❤️ {quote.get('likes', 0):,}  "
-                f"🔁 {quote.get('retweets', 0):,}  "
-                f"👁️ {quote.get('views', 0):,}"
+                f"> ❤️ {self._format_metric(quote.get('likes'))}  "
+                f"🔁 {self._format_metric(quote.get('retweets'))}  "
+                f"👁️ {self._format_metric(quote.get('views'))}"
             )
             content_parts.append(qt_stats)
 
