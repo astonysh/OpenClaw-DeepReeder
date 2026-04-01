@@ -18,6 +18,9 @@ tldextract>=5.1.0
 # HTML parsing (fallback)
 beautifulsoup4>=4.12.0
 
+# Remote content extraction (optional fallbacks)
+tavily-python>=0.5.0
+
 # Unique ID generation (stdlib, listed for clarity)
 # uuid - built-in
 # re - built-in

@@ -66,9 +66,18 @@ class GenericParser(BaseParser):
             last_error = f"Unexpected error: {exc}"
 
         # ------------------------------------------------------------------
-        # Final Fallback: Firecrawl (bypasses bot protections, paywalls)
+        # Final Fallback: Tavily Extract, then Firecrawl (bypass bot
+        # protections, paywalls).  When both API keys are present Tavily
+        # is tried first; if only one key is configured that provider is
+        # used exclusively.
         # ------------------------------------------------------------------
-        logger.info("Local extraction failed. Trying Firecrawl fallback for %s", url)
+        logger.info("Local extraction failed. Trying remote fallbacks for %s", url)
+
+        tv_result = self._extract_with_tavily(url)
+        if tv_result and tv_result.success:
+            logger.info("Tavily successfully extracted content for %s", url)
+            return tv_result
+
         fc_result = self._extract_with_firecrawl(url)
         if fc_result and fc_result.success:
             logger.info("Firecrawl successfully extracted content for %s", url)
@@ -200,6 +209,46 @@ class GenericParser(BaseParser):
         soup = BeautifulSoup(html, "lxml")
         tag = soup.find("title")
         return tag.get_text(strip=True) if tag else ""
+
+    def _extract_with_tavily(self, url: str) -> ParseResult | None:
+        """Fallback extraction using Tavily Extract API."""
+        import os
+        api_key = os.getenv("TAVILY_API_KEY")
+        if not api_key:
+            logger.info("TAVILY_API_KEY not set. Skipping Tavily fallback.")
+            return None
+
+        logger.info("Sending %s to Tavily Extract API...", url)
+        try:
+            from tavily import TavilyClient
+
+            client = TavilyClient(api_key=api_key)
+            response = client.extract(urls=[url])
+
+            results = response.get("results", [])
+            if not results:
+                return None
+
+            raw_content = results[0].get("raw_content", "")
+            if not raw_content:
+                return None
+
+            from ..core.utils import clean_text, generate_excerpt
+
+            content = clean_text(raw_content)
+            if len(content) < 50:
+                return None
+
+            return ParseResult(
+                url=url,
+                title="",
+                content=content,
+                excerpt=generate_excerpt(content),
+                tags=["tavily-fallback"],
+            )
+        except Exception as exc:
+            logger.warning("Tavily fallback failed: %s", exc)
+        return None
 
     def _extract_with_firecrawl(self, url: str) -> ParseResult | None:
         """Fallback extraction using Firecrawl API to bypass blocks/paywalls."""
